@@ -1,0 +1,19 @@
+# Codex 项目级配置（示例，需按本机实际情况验证）
+#
+# 说明：
+# - 本文件只配置 Playwright MCP，不包含任何账号、Cookie 或密钥。
+# - Codex 可能要求先信任本项目，项目级配置才会生效。
+# - @playwright/mcp 固定为 0.0.84：本机已用 `npx ... --help` 验证该版本可启动；
+#   浏览器的实际连接与页面操作仍需在 Codex 中人工验证。
+# - 该版本在未指定 --user-data-dir 时会使用临时目录，因此这里显式指定持久化 Profile。
+#   路径相对于仓库根目录、位于仓库之外（./../.kato-playwright-profile），
+#   避免把 Cookie / 登录状态放进版本库。首次需要登录的站点由用户手动登录一次。
+
+[mcp_servers.playwright]
+command = "npx"
+args = [
+  "-y",
+  "@playwright/mcp@0.0.84",
+  "--browser=chrome",
+  "--user-data-dir=../.kato-playwright-profile",
+]

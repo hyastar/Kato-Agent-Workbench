@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets and local overrides
+.env
+.env.*
+!.env.example
+
+# SQLite database and sidecar files
+data/catalog/*.sqlite3
+data/catalog/*.sqlite3-wal
+data/catalog/*.sqlite3-shm
+
+# Downloaded / processed data payloads
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/metadata/*
+!data/metadata/.gitkeep
+data/catalog/*
+!data/catalog/.gitkeep
+
+# Scratch workspace
+workspace/*
+!workspace/.gitkeep
+
+# Execution records (keep the directory, not the local run artifacts)
+runs/*
+!runs/.gitkeep
+
+# Browser profiles, sessions and cookies (must live outside the repo, belt and braces)
+.browser-profile/
+.kato-playwright-profile/
+*.session
+cookies*.json
+storage-state*.json
+
+# Logs and OS noise
+*.log
+.DS_Store
+Thumbs.db
