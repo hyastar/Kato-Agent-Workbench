@@ -107,8 +107,8 @@ def check_node() -> list[Check]:
                     Check(
                         "Node.js",
                         "WARN",
-                        f"{version} 过旧，Playwright MCP 需要较新的 LTS",
-                        "升级到 Node.js 24 或 26 LTS",
+                        f"{version} 低于项目建议的 Node 24 / 26 LTS",
+                        "升级到 Node.js 24 或 26 LTS；暂不升级时先用 npx 确认 Playwright MCP 可启动",
                     )
                 )
 

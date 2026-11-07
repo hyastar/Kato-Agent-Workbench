@@ -155,6 +155,39 @@ def apply_migrations(
     return MigrationResult(start_version, current, tuple(applied))
 
 
+def missing_tables(conn: sqlite3.Connection) -> list[str]:
+    """返回当前连接中缺失的必要表。"""
+    existing = {
+        row["name"]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+    return [table for table in REQUIRED_TABLES if table not in existing]
+
+
+def connect_ready(
+    db_path: str | Path | None = None,
+    migrations_dir: str | Path = MIGRATIONS_DIR,
+) -> sqlite3.Connection:
+    """打开连接并确保必要表存在；缺表时自动执行迁移（幂等）。
+
+    供 CLI 工具使用：新建或空的数据库文件不会因为未先运行 init_db 而报
+    “no such table”。迁移失败时关闭连接并抛出异常。
+    """
+    conn = connect(db_path)
+    try:
+        if missing_tables(conn):
+            apply_migrations(conn, migrations_dir)
+            remaining = missing_tables(conn)
+            if remaining:
+                raise RuntimeError(f"迁移后仍缺少表：{', '.join(remaining)}")
+    except Exception:
+        conn.close()
+        raise
+    return conn
+
+
 def ensure_task(
     conn: sqlite3.Connection,
     *,

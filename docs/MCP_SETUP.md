@@ -15,7 +15,7 @@
 | Node.js | 当前 LTS（优先 26，若 MCP 不兼容用 24） | `node --version` |
 | npx | 随 Node 提供 | `npx --version` |
 | 浏览器 | Chrome / Edge / Chromium 任一 | 打开浏览器确认可用 |
-| Codex CLI | 支持 MCP 的版本 | `codex --version` |
+| Codex CLI | 支持 MCP 的版本 | `codex --version`（本机未安装，未验证） |
 
 MCP 通过 `npx -y @playwright/mcp@<version>` 启动，不需要在仓库里创建 `package.json`。首次运行会下载 npm 包和浏览器驱动；网络受限时可能失败，需先解决网络或预装。
 
@@ -38,7 +38,7 @@ args = [
 
 1. 在项目根目录启动 Codex。
 2. 如 Codex 提示“是否信任该项目”，按提示信任；项目级配置通常需要信任后才生效。
-3. 用 `codex mcp list`（或当前版本的等价命令）确认 `playwright` 出现在 MCP 列表中。若未出现，通常是项目尚未被信任或需要重启客户端；本机实测（Codex CLI 0.162.1、项目未信任时）该命令确实未列出 `playwright`，这一点尚未在本项目中完成验证。
+3. 用 `codex mcp list`（或当前版本的等价命令）确认 `playwright` 出现在 MCP 列表中。若未出现，通常是项目尚未被信任或需要重启客户端。**本机未安装 Codex CLI，这一步没有在本项目中验证过**，请不要当作已通过。
 4. 第一次需要登录的站点，由用户在弹出的浏览器窗口中手动登录；不向 Agent 提供密码。
 
 说明与注意事项：

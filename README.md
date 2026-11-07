@@ -146,6 +146,8 @@ python -m scripts.catalog add --json-file dataset.json
 
 状态取值：`candidate`、`approved`、`downloaded`、`validated`、`failed`。
 
+`catalog` 使用的数据库若尚不存在（例如用 `--db` 指向新路径），会先自动执行一次迁移再写入，不需要手动 `init_db`。`init_db` 仍然负责创建 `data/` 各子目录。
+
 ## 数据校验
 
 ```bash
@@ -216,10 +218,27 @@ python -m unittest discover -v
 
 ## 环境说明（本机实施记录）
 
-- Conda 环境：`Kato-Agent-Workbench`，Python 3.12（由 `environment.yml` 创建）。
-- Node.js：本机使用 **v24.21.0 LTS**。任务书优先 26 LTS，但本机未安装 26；24 LTS 是允许的回退版本。若之后安装 26 并验证 Playwright MCP 可用，可切换。
-- Playwright MCP 通过 `npx` 启动，不进入 Python 依赖，也不需要 `package.json`。已固定为 `@playwright/mcp@0.0.84`，并用 `npx ... --help` 验证包可启动。
-- MCP 的**实际连接与浏览器操作**尚未验证：`codex mcp list` 在项目未信任时未列出项目级 `playwright`；`doctor` 只检查配置文件存在、TOML 可解析且字段齐全。需在 Codex 中信任项目后人工确认。
+本机为 Windows，实施日期 2026-11-07。以下是**实际执行并观察到的结果**，未验证项单独标注。
+
+| 项目 | 实测状态 |
+|---|---|
+| Conda | conda 26.9.4（`C:\ProgramData\miniconda3`） |
+| 环境 | `Kato-Agent-Workbench` 已创建，Python **3.12.16**，路径 `C:\ProgramData\miniconda3\envs\Kato-Agent-Workbench` |
+| Node.js | **v22.22.2**（PATH 中的 WorkBuddy 内置版本）/ 系统 Node **v22.23.4**。**没有 24 或 26 LTS**，因此 `doctor` 报 Node WARN；这是本机真实状态，未做升级 |
+| npx | 10.9.7 |
+| 浏览器 | Google Chrome 与 Microsoft Edge 均已安装 |
+| Codex CLI | **未安装**（`codex` 不在 PATH，也无 `~/.codex`），因此 `codex mcp list` 与“信任项目后配置生效”**无法在本机验证** |
+
+已真实验证：
+
+- `python -m scripts.init_db` 首次执行 `user_version 0 -> 1`，重复执行输出“已是最新版本”，数据不丢；
+- `python -m scripts.doctor` 结果 `PASS=8 WARN=1 FAIL=0`，唯一 WARN 是 Node 版本；
+- `python -m unittest discover` 全部通过（26 个测试）；
+- `npx -y @playwright/mcp@0.0.84 --help` 可正常启动，且确认该版本提供 `--browser`、`--user-data-dir`、`--extension` 参数，`.codex/config.toml` 中的参数写法有效。
+
+**未验证**：MCP 客户端侧连接（未装 Codex）、浏览器实际启动与页面操作、`--user-data-dir` 持久化 Profile 的登录保持。这些需在装好 Codex 后由人工确认，不要在未验证前视为已通过。
+
+Node 22 与 Playwright MCP 的兼容性只验证到“包能启动并打印帮助”，未做真实浏览器会话。若希望消除 WARN 并贴近任务书建议，可安装 Node 24 LTS 后在 Codex 中复测。
 
 ## 文档索引
 

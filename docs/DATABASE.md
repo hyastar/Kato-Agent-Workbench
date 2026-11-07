@@ -86,6 +86,8 @@ python -m scripts.catalog add --json-file dataset.json
 
 `catalog add` 按 `(source, source_url, version)` 做 upsert：已存在则更新非空字段，不会产生重复行。
 
+`catalog` 通过 `db.connect_ready()` 连接：若目标库里缺少必要表（例如 `--db` 指向一个新建路径），会先自动执行迁移再继续，避免出现 `no such table` 这种难以理解的中断；迁移本身仍是幂等的。`init_db` 的额外职责是创建 `data/` 下的各个运行目录。
+
 ## 备份与重置
 
 - 备份：停止写入后复制 `data/catalog/workbench.sqlite3`（以及同目录的 `-wal` / `-shm`，或先执行 `PRAGMA wal_checkpoint(TRUNCATE)`）。

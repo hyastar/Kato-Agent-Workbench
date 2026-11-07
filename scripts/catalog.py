@@ -93,7 +93,7 @@ def _print_table(rows: list[Any]) -> None:
 
 
 def _command_list(args: argparse.Namespace) -> int:
-    conn = db.connect(args.db)
+    conn = db.connect_ready(args.db)
     try:
         rows = db.list_datasets(conn, status=args.status, source=args.source, limit=args.limit)
     finally:
@@ -114,7 +114,7 @@ def _command_add(args: argparse.Namespace) -> int:
         print(f"参数错误：{exc}", file=sys.stderr)
         return 2
 
-    conn = db.connect(args.db)
+    conn = db.connect_ready(args.db)
     try:
         dataset_id, created = db.upsert_dataset(conn, **payload)
     except ValueError as exc:
