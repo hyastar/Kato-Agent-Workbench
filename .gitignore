@@ -44,3 +44,6 @@ storage-state*.json
 *.log
 .DS_Store
 Thumbs.db
+
+# WorkBuddy 本地工具状态（不属于项目内容）
+.workbuddy/
