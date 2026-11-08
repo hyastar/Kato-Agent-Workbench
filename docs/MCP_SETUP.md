@@ -38,7 +38,14 @@ args = [
 
 1. 在项目根目录启动 Codex。
 2. 如 Codex 提示“是否信任该项目”，按提示信任；项目级配置通常需要信任后才生效。
-3. 用 `codex mcp list`（或当前版本的等价命令）确认 `playwright` 出现在 MCP 列表中。若未出现，通常是项目尚未被信任或需要重启客户端。**本机未安装 Codex CLI，这一步没有在本项目中验证过**，请不要当作已通过。
+3. 用 `codex mcp list`（或当前版本的等价命令）确认 `playwright` 出现在 MCP 列表中。若未出现，通常是项目尚未被信任或需要重启客户端。在 Codex CLI 0.167.0 上实测：未信任时 `mcp list` 输出 “No MCP servers configured yet”；在 `~/.codex/config.toml` 加入下面的条目后即可列出 `playwright`（`enabled`）：
+
+   ```toml
+   [projects."D:\\Github\\Code\\Kato-Agent-Workbench"]
+   trust_level = "trusted"
+   ```
+
+   注意这是**用户级**配置，不在本仓库内；路径写法随 Codex 版本可能调整，以官方文档为准。
 4. 第一次需要登录的站点，由用户在弹出的浏览器窗口中手动登录；不向 Agent 提供密码。
 
 说明与注意事项：
@@ -99,6 +106,7 @@ Profile 路径必须在仓库之外；不要提交 Profile、Cookie、`storage-s
 
 - 只能访问当前任务明确列出的站点；
 - 遇到 CAPTCHA、短信/邮箱验证、付费墙，暂停并交回用户；
+- **Cloudflare 等站点防护属于人机验证**：Roboflow Universe 首次访问会返回 HTTP 403 与“正在进行安全验证”页，必须由用户在可见浏览器窗口中手动完成，之后清理 Cookie（`cf_clearance`）会随 Profile 保留；不得尝试脚本化通过验证；
 - 批量下载、上传、发布、删除前必须人工确认（见 `docs/SAFETY.md`）；
 - 不通过自动化手段规避访问控制或反自动化机制。
 

@@ -227,18 +227,26 @@ python -m unittest discover -v
 | Node.js | **v22.22.2**（PATH 中的 WorkBuddy 内置版本）/ 系统 Node **v22.23.4**。**没有 24 或 26 LTS**，因此 `doctor` 报 Node WARN；这是本机真实状态，未做升级 |
 | npx | 10.9.7 |
 | 浏览器 | Google Chrome 与 Microsoft Edge 均已安装 |
-| Codex CLI | **未安装**（`codex` 不在 PATH，也无 `~/.codex`），因此 `codex mcp list` 与“信任项目后配置生效”**无法在本机验证** |
+| Codex CLI | **已安装 0.167.0**（用户级 npm 前缀 `C:\Users\hyastar\AppData\Roaming\npm`）。`codex doctor` 显示**未登录**（无凭据），且 OpenAI 端点不可达，因此 Codex 无法驱动任务 |
 
 已真实验证：
 
 - `python -m scripts.init_db` 首次执行 `user_version 0 -> 1`，重复执行输出“已是最新版本”，数据不丢；
 - `python -m scripts.doctor` 结果 `PASS=8 WARN=1 FAIL=0`，唯一 WARN 是 Node 版本；
 - `python -m unittest discover` 全部通过（26 个测试）；
-- `npx -y @playwright/mcp@0.0.84 --help` 可正常启动，且确认该版本提供 `--browser`、`--user-data-dir`、`--extension` 参数，`.codex/config.toml` 中的参数写法有效。
+- `npx -y @playwright/mcp@0.0.84 --help` 可正常启动，且确认该版本提供 `--browser`、`--user-data-dir`、`--extension` 参数；
+- 在 `~/.codex/config.toml` 写入 `[projects."<仓库路径>"] trust_level = "trusted"` 后，`codex mcp list` **能列出项目级 `playwright` 服务器**（`enabled`），说明 `.codex/config.toml` 可被 Codex 正确解析；
+- **真实浏览器 E2E**：用标准 MCP stdio 协议直连 `@playwright/mcp@0.0.84`（`--browser=chrome --user-data-dir=../.kato-playwright-profile`），列出 25 个 browser 工具，成功启动 Chrome 并访问 `https://universe.roboflow.com/`，采集到 5 个数据集页面；
+- **Profile 持久化**：关闭会话后 Profile 位于 `D:\Github\Code\.kato-playwright-profile`（仓库之外），`Default/Network/Cookies` 含 `cf_clearance` 等 4 条 Cookie；重启全新会话后再次访问 Roboflow **未再出现 403 验证页**，直接进入首页。
 
-**未验证**：MCP 客户端侧连接（未装 Codex）、浏览器实际启动与页面操作、`--user-data-dir` 持久化 Profile 的登录保持。这些需在装好 Codex 后由人工确认，不要在未验证前视为已通过。
+**重要边界**：Roboflow 使用 Cloudflare 人机验证。首次访问返回 HTTP 403 与“正在进行安全验证”页，必须由**用户本人**在可见的 Chrome 窗口中完成验证；自动化不得绕过。本项目的验收流程即是如此处理的。
 
-Node 22 与 Playwright MCP 的兼容性只验证到“包能启动并打印帮助”，未做真实浏览器会话。若希望消除 WARN 并贴近任务书建议，可安装 Node 24 LTS 后在 Codex 中复测。
+**仍未验证**：
+
+- Codex 会话内实际调用 Playwright 工具（受“未登录”阻塞，`codex login` 后才能测）；
+- 需要账号的动作：登录、导出格式确认、数据集下载。
+
+Node 22 与 Playwright MCP 的兼容性已验证到“真实浏览器会话可运行”，但项目建议版本仍是 24 / 26 LTS。
 
 ## 文档索引
 
