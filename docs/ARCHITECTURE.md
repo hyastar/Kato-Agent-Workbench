@@ -71,6 +71,7 @@ Kato-Agent-Workbench 是**由现有编码 Agent（Codex / Zcode 等）驱动的�
 
 ## 扩展点
 
+- 就业情报的模块化设计、SQLite V3 表、文件档案与 Campaign/Batch 规则见 `docs/ARCHITECTURE_EMPLOYMENT.md`。
 - 新站点：写进任务文档的“目标网站与允许范围”，复用浏览器 MCP。
 - 新数据格式：在 `scripts/validate_dataset.py` 增加明确支持的格式分支，并补离线 fixture 测试。
 - 新元信息字段：新增迁移文件（例如 `002_add_field.sql`），不要修改已执行的迁移。
