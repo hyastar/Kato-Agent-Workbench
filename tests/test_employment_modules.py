@@ -204,10 +204,10 @@ class ArtifactTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         target = Path(temporary.name) / "a.md"
-        metadata = artifacts.write_text_artifact(target, "内容")
+        metadata = artifacts.write_text_artifact(target, "内容\n第二行")
         self.assertTrue(target.is_file())
-        self.assertEqual(metadata["sha256"], artifacts.sha256_text("内容"))
-        self.assertEqual(metadata["size_bytes"], len("内容".encode("utf-8")))
+        self.assertEqual(metadata["sha256"], artifacts.sha256_file(target))
+        self.assertEqual(metadata["size_bytes"], target.stat().st_size)
 
 
 class AnalyticsAndRepositoryTests(unittest.TestCase):

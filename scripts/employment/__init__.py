@@ -3,7 +3,7 @@
 浏览器操作由宿主 Agent + Playwright MCP 完成；本包只做确定性处理。
 """
 
-from scripts.employment import analytics, artifacts, deduplicate, exporter, markdown_export, models, normalize, repository, validate
+from scripts.employment import analytics, artifacts, deduplicate, exporter, markdown_export, models, normalize, repository, report, validate
 
 __all__ = [
     "analytics",
@@ -14,5 +14,6 @@ __all__ = [
     "models",
     "normalize",
     "repository",
+    "report",
     "validate",
 ]

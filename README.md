@@ -202,6 +202,15 @@ python -m scripts.research_catalog export --format json
 
 `runs/<run-id>/` 下保存 `task_snapshot.md`、`progress.md`、`results.json`、`report.md`；本地数据库、运行目录与浏览器 Profile 均不提交 Git。脱敏阶段摘要写入 `docs/acceptance/EMPLOYMENT_PHASES.md`。
 
+### 6. 1000 篇 Campaign（V4）
+
+- Campaign：`employment-2026-2027-1000-20261109`；目标 1000 篇（小红书 800、知乎 200；2026 届 400、2027 届 600）。
+- 每篇最多 50 条一级评论；超过 50 时高赞前 30 + 最新前 20，去重补足；无排序控件时按可见顺序并记录限制。
+- 所选一级评论下的楼中楼尽可能全部展开，不计入 50 条；评论作者身份字段不入库。
+- 产物：`data/employment/<platform>/{posts,comments,indexes}/`、`data/employment/reports/`、SQLite 的 Campaign/Batch/Artifact 表。
+- **当前实测：20/1000**（小红书 16、知乎 4；2026 届 8、2027 届 12；评论 365 条）。Campaign 状态为 `partial`，未声称完成 1000 篇。
+- 恢复：先查 SQLite 的 `research_campaigns` / `research_batches` 与 `runs/<run-id>/checkpoints/`，再继续新批次。
+
 ## 浏览器 MCP 与首次登录
 
 Codex 的项目级配置在 `.codex/config.toml`：
@@ -271,7 +280,7 @@ python -m unittest discover -v
 
 - `python -m scripts.init_db` 首次执行 `user_version 0 -> 1`，重复执行输出“已是最新版本”，数据不丢；
 - `python -m scripts.doctor` 结果 `PASS=8 WARN=1 FAIL=0`，唯一 WARN 是 Node 版本；
-- `python -m unittest discover` 全部通过（43 个测试）；
+- `python -m unittest discover` 全部通过（73 个测试）；
 - `npx -y @playwright/mcp@0.0.84 --help` 可正常启动，且确认该版本提供 `--browser`、`--user-data-dir`、`--extension` 参数；
 - 在 `~/.codex/config.toml` 写入 `[projects."<仓库路径>"] trust_level = "trusted"` 后，`codex mcp list` **能列出项目级 `playwright` 服务器**（`enabled`），说明 `.codex/config.toml` 可被 Codex 正确解析；
 - **真实浏览器 E2E**：用标准 MCP stdio 协议直连 `@playwright/mcp@0.0.84`（`--browser=chrome --user-data-dir=../.kato-playwright-profile`），列出 25 个 browser 工具，成功启动 Chrome 并访问 `https://universe.roboflow.com/`，采集到 5 个数据集页面；
@@ -290,6 +299,14 @@ Node 22 与 Playwright MCP 的兼容性已验证到“真实浏览器会话可�
 
 - SQLite 从 V1 升级到 V2（新增 `research_items` / `run_research_items`），原有 5 条 Roboflow 数据集与 1 条运行记录保留，迁移前自动生成可读备份。
 - 离线测试 43 个全部通过（新增 V1→V2 迁移、去重、核验约束与 CLI 测试）。
+
+### V4 模块化与试采集（2026-11-09）
+
+- 新增 `scripts/employment/` 模块（模型、标准化、去重、校验、Repository、产物、Markdown 导出、统计、Campaign 报告）。
+- SQLite 升级到 V3：新增评论层级、Campaign、Batch、Artifact 表；历史 5 条数据集与 12 条就业记录保留，迁移前自动备份。
+- 真实浏览器试采集 20 篇（小红书 16、知乎 4），一级评论 211 条、楼中楼 154 条；文章/评论 Markdown 各 20 份。
+- 评论覆盖：完整 9、部分 8、无可用评论 3；Campaign 实际 20/1000，状态 `partial`。
+- 离线测试 73 个全部通过。
 - Playwright MCP 驱动真实 Chrome；知乎与小红书均由用户在浏览器中手动完成登录。
 - 知乎搜索 `2026届 秋招` / `2027届 秋招` / `2027届 校招`，采集 6 条；小红书搜索 `2026届 秋招` / `2027届 秋招`，采集 6 条。
 - 12 条写入 `research_items` 并关联运行 `run_research_items`；2026 届 5 条、2027 届 7 条；全部为 `unverified` UGC。
@@ -303,5 +320,8 @@ Node 22 与 Playwright MCP 的兼容性已验证到“真实浏览器会话可�
 - `docs/WORKFLOW.md`：执行、失败与恢复流程
 - `docs/DATABASE.md`：表结构与迁移约定
 - `docs/MCP_SETUP.md`：浏览器 MCP 配置与排障
+- `docs/ARCHITECTURE_EMPLOYMENT.md`：就业情报模块化架构、SQLite V3 与 Campaign 规则
+- `docs/platforms/ZHIHU.md`：知乎搜索、详情与评论操作手册
+- `docs/platforms/XIAOHONGSHU.md`：小红书搜索、点击进入与评论操作手册
 - `docs/RECRUITMENT_RESEARCH.md`：就业情报来源、分类、核验与报告规范
 - `docs/SAFETY.md`：权限、许可、隐私与人工确认边界

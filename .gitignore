@@ -25,6 +25,9 @@ data/metadata/*
 data/catalog/*
 !data/catalog/.gitkeep
 
+# Employment research archives (posts, comments, indexes, reports)
+data/employment/
+
 # Scratch workspace
 workspace/*
 !workspace/.gitkeep
