@@ -11,14 +11,27 @@ XHS_EXPAND_AND_PARSE = r"""
 async () => {
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const sc = document.querySelector('.note-scroller');
+  let lastCount = -1;
+  let stable = 0;
   for (let round = 0; round < 20; round++) {
     [...document.querySelectorAll('.show-more')]
       .filter(b => /展开/.test(b.innerText || ''))
       .forEach(b => b.click());
     if (sc) sc.scrollTop = sc.scrollHeight;
     window.scrollTo(0, document.body.scrollHeight);
-    await sleep(900);
+    await sleep(800);
+    const count = document.querySelectorAll('.parent-comment').length;
+    if (count === lastCount) stable += 1; else stable = 0;
+    lastCount = count;
+    if (stable >= 3) break;
   }
+  await sleep(1500);
+  [...document.querySelectorAll('.show-more')]
+    .filter(b => /展开/.test(b.innerText || ''))
+    .forEach(b => b.click());
+  if (sc) sc.scrollTop = sc.scrollHeight;
+  window.scrollTo(0, document.body.scrollHeight);
+  await sleep(1200);
   const parseItem = (el, level, rootId) => {
     const id = (el.id || '').replace(/^comment-/, '');
     const text = (el.querySelector('.content')?.innerText || '').trim();
@@ -58,7 +71,9 @@ async () => {
 ZHIHU_EXPAND_AND_PARSE = r"""
 async () => {
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let round = 0; round < 12; round++) {
+  let lastCount = -1;
+  let stable = 0;
+  for (let round = 0; round < 15; round++) {
     [...document.querySelectorAll('button,div,span')]
       .filter(e => {
         const text = (e.innerText || '').trim();
@@ -68,6 +83,10 @@ async () => {
       .forEach(b => b.click());
     window.scrollTo(0, document.body.scrollHeight);
     await sleep(700);
+    const count = document.querySelectorAll('.CommentContent').length;
+    if (count === lastCount) stable += 1; else stable = 0;
+    lastCount = count;
+    if (stable >= 3) break;
   }
   const seen = new Set();
   const items = [];

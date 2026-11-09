@@ -34,7 +34,8 @@ def _parse_int(value: object) -> int | None:
 def _to_node(item: dict[str, Any], level: int) -> CommentNode | None:
     content = (item.get("content") or "").strip()
     if not content:
-        return None
+        # 图片/表情评论可能没有文字；保留占位以维持页面计数，不保存作者信息。
+        content = "[无文字内容]"
     content, _ = redact_contacts(content)
     children = [
         node

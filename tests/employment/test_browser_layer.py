@@ -92,6 +92,17 @@ class BrowserLayerTests(unittest.TestCase):
         self.assertNotIn("a@b.com", content)
         self.assertIn("已脱敏", content)
 
+    def test_empty_text_comment_is_kept_as_placeholder(self) -> None:
+        payload = {
+            "title": "标题",
+            "url": "https://www.xiaohongshu.com/explore/1",
+            "displayed_total": 1,
+            "items": [{"platform_comment_id": "c1", "content": "", "like_text": "1", "time_displayed": "昨天", "comment_level": 1, "children": []}],
+        }
+        result = normalize_payload(payload, _task())
+        self.assertEqual(result.collected_top_level, 1)
+        self.assertEqual(result.comments[0].content, "[无文字内容]")
+
     def test_no_comments_is_not_available(self) -> None:
         payload = {
             "title": "标题",
