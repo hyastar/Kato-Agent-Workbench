@@ -50,3 +50,12 @@
 - 不保存评论作者身份字段与联系方式。
 - 不进行点赞、收藏、评论、关注、私信、发帖等互动。
 - 不伪造点赞数、评论总数、排序方式或发布时间。
+
+## 7. 已验证的批处理动作（V5）
+
+- 动作片段：`scripts/employment/browser/actions.py` 的 `XHS_EXPAND_AND_PARSE`。
+- 前提：先从搜索结果真实点击进入笔记（URL 自动带 `xsec_token`）。
+- 行为：滚动 `.note-scroller`、点击 `.show-more` 展开回复、按 `.parent-comment` 数量做稳定检测（连续 3 轮不增长即停）、最后一次追加展开后解析。
+- 解析字段：`.comment-item` 的 `id`（去掉 `comment-`）、`.content`、`.interactions .like .count`、`.info .date`、`.reply-container .comment-item`。
+- 输出：标题、规范 URL（去 query）、`displayed_total`、`items`；Python 侧再执行 50 条规则、脱敏与覆盖判定。
+- 已验证：12 篇固定样本中 8 篇；与逐步基线相比完整覆盖一致。

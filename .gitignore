@@ -46,6 +46,11 @@ storage-state*.json
 # Playwright MCP 在 cwd 下生成的页面快照与控制台日志
 .playwright-mcp/
 
+# Browser performance traces and artifacts
+*.trace.zip
+test-results/
+playwright-report/
+
 # Logs and OS noise
 *.log
 .DS_Store

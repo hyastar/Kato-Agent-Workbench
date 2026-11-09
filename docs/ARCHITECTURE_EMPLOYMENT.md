@@ -135,7 +135,29 @@ runs/<run-id>/{task_snapshot.md,progress.md,results.json,checkpoints/}
 - 恢复时先查 SQLite 与 checkpoint，已完成文章/评论不重复采集。
 - 失败类型区分：登录要求、验证要求、限流、页面加载失败、详情不可用、评论不可用、回复展开失败、浏览器断开、校验失败、重复、未知。
 
-## 7. 不变量
+## 7. V5 浏览器执行层
+
+V5 在 V4 数据层之上增加一个轻量执行层，不改变 SQLite schema 或 Markdown 格式。
+
+| 模块 | 职责 |
+|---|---|
+| `scripts/employment/browser/contracts.py` | `ArticleTask` / `ArticleResult` / `CommentNode` / 可解释错误 |
+| `scripts/employment/browser/actions.py` | 经审查的小红书、知乎“展开 + 提取”页面动作片段 |
+| `scripts/employment/browser/extraction.py` | payload 规范化、50 条一级评论选择、覆盖判定、脱敏 |
+| `scripts/employment/browser/runner.py` | 规范化 CLI 与 checkpoint；不联网 |
+| `scripts/employment/perf/` | 单调时钟、JSONL 事件、汇总与 A/B 门槛 |
+
+边界：
+
+- 宿主 Agent 决定打开哪篇文章、是否继续与如何处理异常；
+- Playwright MCP 在真实 Chrome 中执行已审查的动作片段；
+- 一次动作完成“滚动 → 展开 → 提取”，正常路径返回紧凑 JSON；
+- Python 只处理已返回的 payload，并在每篇后写 checkpoint；
+- 默认后端 `mcp_batch`，逐步基线 `mcp_baseline` 保留为回退。
+
+质量不变量与 V4 相同：一级评论 ≤50、楼中楼独立计数、无排序证据不标 `latest`、显示数/实际数分开、作者身份不入库、失败标 `partial`。
+
+## 8. 不变量
 
 - 文章数、评论数分别统计；评论不计入文章目标。
 - `verified` 必须有证据 URL 与核验时间；UGC 不得升级为官方事实。

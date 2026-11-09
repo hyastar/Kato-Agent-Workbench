@@ -43,3 +43,11 @@
 - 不保存评论作者身份字段与联系方式。
 - 不进行点赞、收藏、评论、私信、发帖等互动。
 - 不伪造点赞数、评论总数、排序方式或发布时间。
+
+## 6. 已验证的批处理动作（V5）
+
+- 动作片段：`scripts/employment/browser/actions.py` 的 `ZHIHU_EXPAND_AND_PARSE`。
+- 行为：滚动页面并点击“展开回复 / 查看全部评论 / 加载更多”，按 `.CommentContent` 数量做稳定检测（连续 3 轮不增长即停），然后一次性解析。
+- 解析字段：`.CommentContent` 文本、页面显示评论数；知乎 DOM 无稳定评论对象 ID，`platform_comment_id` 为空，按内容与时间做辅助去重。
+- 输出：标题、规范 URL、`displayed_total`、`items`；Python 侧规范化并标记 `visible_order`。
+- 已验证：4 篇固定样本；评论树按一级可见评论处理，未区分楼中楼层级（已在报告标记）。

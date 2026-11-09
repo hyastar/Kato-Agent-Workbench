@@ -11,7 +11,7 @@
 | 3 | 浏览器执行工具对比 | 完成 | 调研：完成浏览器执行工具兼容性对比 |
 | 4 | 优化执行层实现 | 完成 | 优化：实现浏览器批量操作与文章评论提取 |
 | 5 | 同样本 A/B 测速 | 完成（12 篇固定样本） | 测试：完成浏览器采集优化前后对照验收 |
-| 6 | 后端选择与文档定版 | 未开始 | 文档：发布V5性能评测与执行架构规范 |
+| 6 | 后端选择与文档定版 | 完成 | 文档：发布V5性能评测与执行架构规范 |
 | 7 | 新 20 篇批次与恢复 | 未开始 | 验证：完成V5真实批次采集与断点恢复 |
 
 ## 阶段 1 — 审计、备份、性能协议与埋点
@@ -95,4 +95,20 @@
 - 门槛：`adoption_gate` 通过（speedup ≥1.3，覆盖率与一级评论不退化）。
 - **未执行**：4 篇盲测样本的时间盒未完成；结论仅基于 12 篇固定样本，不外推为通用 SLA。
 - 局限：小红书搜索卡片与评论数存在波动；p95 样本量小，仅描述；Token 未测量。
+- 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 7 交付表。
+
+## 阶段 6 — 后端选择与文档定版
+
+- 日期：2026-11-09
+- 采用后端：`mcp_batch`（Playwright MCP 会话内批量执行）；`mcp_baseline` 保留回退。
+- 新增/更新文档：
+  - `docs/performance/V5_RESULT.md`：12 篇 A/B 实测、四张表、结论与边界；
+  - `AGENTS.md`：已验证重复步骤交给执行层；
+  - `README.md`：V5 性能结果与 runner 命令；
+  - `docs/ARCHITECTURE_EMPLOYMENT.md`：V5 执行层边界；
+  - `docs/platforms/ZHIHU.md`、`docs/platforms/XIAOHONGSHU.md`：已验证批处理动作与选择器；
+  - `.gitignore`：trace / test-results / playwright-report。
+- 缺陷修复：`select_comments()` 默认不声称 `latest`；无文字评论保留占位；产物 SHA 与文件字节一致。
+- 测试：`python -m unittest discover -v` → **88 个测试全部通过**。
+- 未执行：4 篇盲测；未宣称 1000 篇吞吐、Token 节省或长期后台 Worker。
 - 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 7 交付表。

@@ -136,3 +136,4 @@
 19. 保留 Roboflow 工作流、历史数据集与历史就业记录；不删除、不覆盖。
 20. 每个开发阶段完成后执行测试、中文 Commit、推送 `origin/main`，并核对本地与远端 SHA；推送失败或分叉时如实报告，不强制推送。
 21. 平台操作细节见 `docs/platforms/ZHIHU.md` 与 `docs/platforms/XIAOHONGSHU.md`；页面结构变化时先更新手册，再继续批量采集。
+22. 已验证的重复浏览器步骤（滚动、展开、提取）交给 `scripts/employment/browser/` 的批处理动作；Agent 只负责规划、异常处理与质量审查，不逐次推理每个微操作。

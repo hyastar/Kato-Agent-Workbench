@@ -211,6 +211,15 @@ python -m scripts.research_catalog export --format json
 - **当前实测：20/1000**（小红书 16、知乎 4；2026 届 8、2027 届 12；评论 365 条）。Campaign 状态为 `partial`，未声称完成 1000 篇。
 - 恢复：先查 SQLite 的 `research_campaigns` / `research_batches` 与 `runs/<run-id>/checkpoints/`，再继续新批次。
 
+### 7. V5 浏览器执行性能
+
+- 实测样本 12 篇（小红书 8、知乎 4）：V4 逐步操作为基线，V5 用一次 `browser_evaluate` 完成“滚动 → 展开 → 提取”。
+- 结果：总耗时 724.4 s → 456.8 s（**1.586×**）；工具调用 152 → 45；一级评论 213 = 213，覆盖 complete 9 / partial 3 不变。
+- 默认后端：`mcp_batch`（Playwright MCP 会话内批处理）；基线仍可回退。
+- 性能协议见 `docs/performance/BENCHMARK_PROTOCOL.md`，结果与边界见 `docs/performance/V5_RESULT.md`。
+- 只做规范化、不入网的命令：`python -m scripts.employment.browser.runner normalize --task task.json --payload payload.json`。
+- 说明：4 篇盲测未执行；Token 未测量；不宣称长期后台 Worker 或 1000 篇吞吐。
+
 ## 浏览器 MCP 与首次登录
 
 Codex 的项目级配置在 `.codex/config.toml`：
