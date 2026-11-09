@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = REPO_ROOT / "data" / "catalog" / "workbench.sqlite3"
@@ -51,7 +52,43 @@ RUN_DATASET_ACTIONS: tuple[str, ...] = (
     "validated",
     "failed",
 )
-REQUIRED_TABLES: tuple[str, ...] = ("tasks", "runs", "datasets", "run_datasets")
+RESEARCH_PLATFORMS: tuple[str, ...] = (
+    "zhihu",
+    "xiaohongshu",
+    "official",
+    "media",
+    "other",
+)
+RESEARCH_SOURCE_TYPES: tuple[str, ...] = ("official", "reported", "ugc", "search_lead")
+RESEARCH_TOPICS: tuple[str, ...] = (
+    "recruitment",
+    "experience",
+    "policy",
+    "industry",
+    "salary",
+    "warning",
+    "other",
+)
+RESEARCH_COHORTS: tuple[str, ...] = ("2026", "2027", "unknown")
+RECRUITMENT_STAGES: tuple[str, ...] = (
+    "autumn",
+    "spring",
+    "makeup",
+    "early",
+    "internship",
+    "other",
+    "unknown",
+)
+VERIFICATION_STATUSES: tuple[str, ...] = ("unverified", "verified", "conflicting", "stale")
+RESEARCH_ACTIONS: tuple[str, ...] = ("discovered", "imported", "verified", "updated")
+REQUIRED_TABLES: tuple[str, ...] = (
+    "tasks",
+    "runs",
+    "datasets",
+    "run_datasets",
+    "research_items",
+    "run_research_items",
+)
 
 
 def utc_now() -> str:
@@ -166,22 +203,74 @@ def missing_tables(conn: sqlite3.Connection) -> list[str]:
     return [table for table in REQUIRED_TABLES if table not in existing]
 
 
+def pending_migration_versions(
+    conn: sqlite3.Connection,
+    migrations_dir: str | Path = MIGRATIONS_DIR,
+) -> list[int]:
+    """返回高于当前 PRAGMA user_version 的迁移版本号（升序）。
+
+    迁移是否待执行应以版本号为准，而不是“必要表是否缺失”：V1 -> V2 这类只新增
+    表的升级不能被“基础表已存在”的旧判断跳过。
+    """
+    current = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    return [version for version, _ in migration_files(migrations_dir) if version > current]
+
+
+def backup_database(
+    conn: sqlite3.Connection,
+    db_path: str | Path,
+    *,
+    backup_dir: str | Path | None = None,
+) -> Path:
+    """用 SQLite 在线备份 API 复制数据库，并验证备份可读。
+
+    默认写入数据库所在目录的 `backups/` 子目录；该目录位于被 Git 忽略的
+    data/catalog 下（或测试临时目录），不会进入版本库。
+    """
+    source_path = Path(db_path)
+    target_dir = Path(backup_dir) if backup_dir is not None else source_path.parent / "backups"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    target = target_dir / f"{source_path.name}.{stamp}.bak"
+
+    destination = sqlite3.connect(str(target))
+    try:
+        conn.backup(destination)
+        integrity = destination.execute("PRAGMA integrity_check").fetchone()[0]
+        if integrity != "ok":
+            raise RuntimeError(f"备份完整性检查失败：{integrity}")
+        destination.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()
+    finally:
+        destination.close()
+    return target
+
+
 def connect_ready(
     db_path: str | Path | None = None,
     migrations_dir: str | Path = MIGRATIONS_DIR,
+    *,
+    backup: bool = True,
 ) -> sqlite3.Connection:
-    """打开连接并确保必要表存在；缺表时自动执行迁移（幂等）。
+    """打开连接并应用所有待执行迁移（按 PRAGMA user_version 判断）。
+
+    - 全新路径：直接迁移到最新版本；
+    - 旧版本库（例如 V1）：先做一次在线备份，再应用 002 等增量迁移；
+    - 已是最新版本：不迁移、不备份，保持幂等。
 
     供 CLI 工具使用：新建或空的数据库文件不会因为未先运行 init_db 而报
-    “no such table”。迁移失败时关闭连接并抛出异常。
+    “no such table”；迁移失败时关闭连接并抛出异常。
     """
-    conn = connect(db_path)
+    path = resolve_db_path(db_path)
+    existed = path.exists() and path.stat().st_size > 0
+    conn = connect(path)
     try:
-        if missing_tables(conn):
+        if pending_migration_versions(conn, migrations_dir):
+            if existed and backup:
+                backup_database(conn, path)
             apply_migrations(conn, migrations_dir)
-            remaining = missing_tables(conn)
-            if remaining:
-                raise RuntimeError(f"迁移后仍缺少表：{', '.join(remaining)}")
+        remaining = missing_tables(conn)
+        if remaining:
+            raise RuntimeError(f"迁移后仍缺少表：{', '.join(remaining)}")
     except Exception:
         conn.close()
         raise
@@ -419,5 +508,237 @@ def dataset_links(conn: sqlite3.Connection, dataset_id: str) -> list[sqlite3.Row
         conn.execute(
             "SELECT * FROM run_datasets WHERE dataset_id = ? ORDER BY created_at",
             (dataset_id,),
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
+# 研究条目（research_items / run_research_items）
+# ---------------------------------------------------------------------------
+
+
+def normalize_url(url: str) -> str:
+    """规范化 URL：小写 scheme/host、去掉 fragment，保留路径与查询参数。
+
+    不删除可能影响身份识别的路径或参数，只做最小的稳定化处理。
+    """
+    candidate = (url or "").strip()
+    if not candidate:
+        raise ValueError("canonical_url 不能为空")
+    parts = urlsplit(candidate)
+    if parts.scheme.lower() not in {"http", "https"} or not parts.netloc:
+        raise ValueError("canonical_url 必须是 http(s) URL")
+    return urlunsplit(
+        (parts.scheme.lower(), parts.netloc.lower(), parts.path or "/", parts.query, "")
+    )
+
+
+def research_item_identity(platform: str, canonical_url: str) -> str:
+    """由 (platform, 规范化 URL) 稳定派生 item_id。"""
+    normalized = normalize_url(canonical_url)
+    return "ri_" + hashlib.sha256(
+        f"{platform}\n{normalized}".encode("utf-8")
+    ).hexdigest()[:16]
+
+
+def _normalize_iso8601(value: str | None, field: str) -> str | None:
+    """校验并保留 ISO-8601 文本；空值返回 None。"""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{field} 必须是 ISO-8601 日期或时间：{text}") from exc
+    return text
+
+
+def upsert_research_item(
+    conn: sqlite3.Connection,
+    *,
+    platform: str,
+    canonical_url: str,
+    title: str,
+    source_type: str,
+    topic: str,
+    cohort: str,
+    recruitment_stage: str,
+    summary: str | None = None,
+    company: str | None = None,
+    city: str | None = None,
+    published_at: str | None = None,
+    collected_at: str | None = None,
+    verification_status: str | None = None,
+    verification_url: str | None = None,
+    verified_at: str | None = None,
+) -> tuple[str, bool]:
+    """按 (platform, canonical_url) 幂等登记研究条目；返回 (item_id, 是否新建)。
+
+    `verification_status="verified"` 时必须同时提供 `verification_url` 与
+    `verified_at`，否则拒绝写入——不能用猜测或模型记忆充当核验证据。
+    """
+    if platform not in RESEARCH_PLATFORMS:
+        raise ValueError(f"不支持的 platform：{platform}（可选：{', '.join(RESEARCH_PLATFORMS)}）")
+    if source_type not in RESEARCH_SOURCE_TYPES:
+        raise ValueError(
+            f"不支持的 source_type：{source_type}（可选：{', '.join(RESEARCH_SOURCE_TYPES)}）"
+        )
+    if topic not in RESEARCH_TOPICS:
+        raise ValueError(f"不支持的 topic：{topic}（可选：{', '.join(RESEARCH_TOPICS)}）")
+    if cohort not in RESEARCH_COHORTS:
+        raise ValueError(f"不支持的 cohort：{cohort}（可选：{', '.join(RESEARCH_COHORTS)}）")
+    if recruitment_stage not in RECRUITMENT_STAGES:
+        raise ValueError(
+            f"不支持的 recruitment_stage：{recruitment_stage}"
+            f"（可选：{', '.join(RECRUITMENT_STAGES)}）"
+        )
+    if verification_status is not None and verification_status not in VERIFICATION_STATUSES:
+        raise ValueError(
+            f"不支持的 verification_status：{verification_status}"
+            f"（可选：{', '.join(VERIFICATION_STATUSES)}）"
+        )
+    if not str(title or "").strip():
+        raise ValueError("title 不能为空")
+
+    normalized_url = normalize_url(canonical_url)
+    item_id = research_item_identity(platform, normalized_url)
+    status = verification_status or "unverified"
+    verification_url = (verification_url or "").strip() or None
+    verified_at = _normalize_iso8601(verified_at, "verified_at")
+    if status == "verified" and (verification_url is None or verified_at is None):
+        raise ValueError(
+            "verification_status=verified 时必须提供 verification_url 与 verified_at"
+        )
+
+    published_at = _normalize_iso8601(published_at, "published_at")
+    collected_at = _normalize_iso8601(collected_at, "collected_at") or utc_now()
+
+    values: dict[str, Any] = {
+        "title": str(title).strip(),
+        "summary": summary,
+        "source_type": source_type,
+        "topic": topic,
+        "cohort": cohort,
+        "recruitment_stage": recruitment_stage,
+        "company": company,
+        "city": city,
+        "published_at": published_at,
+        "verification_status": verification_status,
+        "verification_url": verification_url,
+        "verified_at": verified_at,
+    }
+    now = utc_now()
+    existing = conn.execute(
+        "SELECT item_id FROM research_items WHERE platform = ? AND canonical_url = ?",
+        (platform, normalized_url),
+    ).fetchone()
+
+    with conn:
+        if existing is None:
+            conn.execute(
+                "INSERT INTO research_items (item_id, platform, canonical_url, title, summary, "
+                "source_type, topic, cohort, recruitment_stage, company, city, published_at, "
+                "collected_at, verification_status, verification_url, verified_at, "
+                "created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    item_id,
+                    platform,
+                    normalized_url,
+                    values["title"],
+                    summary,
+                    source_type,
+                    topic,
+                    cohort,
+                    recruitment_stage,
+                    company,
+                    city,
+                    published_at,
+                    collected_at,
+                    status,
+                    verification_url,
+                    verified_at,
+                    now,
+                    now,
+                ),
+            )
+            return item_id, True
+
+        present = {key: value for key, value in values.items() if value is not None}
+        assignments = ", ".join(f"{field} = ?" for field in present)
+        conn.execute(
+            f"UPDATE research_items SET {assignments}, collected_at = ?, updated_at = ? "
+            "WHERE item_id = ?",
+            (*present.values(), collected_at, now, existing["item_id"]),
+        )
+        return str(existing["item_id"]), False
+
+
+def link_run_research_item(
+    conn: sqlite3.Connection,
+    run_id: str,
+    item_id: str,
+    action: str = "imported",
+) -> None:
+    """建立执行与研究条目的关联；重复关联是幂等的。"""
+    if action not in RESEARCH_ACTIONS:
+        raise ValueError(f"不支持的关联动作：{action}（可选：{', '.join(RESEARCH_ACTIONS)}）")
+    with conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO run_research_items (run_id, item_id, action, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (run_id, item_id, action, utc_now()),
+        )
+
+
+def list_research_items(
+    conn: sqlite3.Connection,
+    *,
+    cohort: str | None = None,
+    platform: str | None = None,
+    topic: str | None = None,
+    verification: str | None = None,
+    limit: int | None = None,
+) -> list[sqlite3.Row]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if cohort:
+        clauses.append("cohort = ?")
+        params.append(cohort)
+    if platform:
+        clauses.append("platform = ?")
+        params.append(platform)
+    if topic:
+        clauses.append("topic = ?")
+        params.append(topic)
+    if verification:
+        clauses.append("verification_status = ?")
+        params.append(verification)
+
+    sql = "SELECT * FROM research_items"
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY collected_at DESC, item_id ASC"
+    if limit is not None:
+        if limit < 0:
+            raise ValueError("limit 不能为负数")
+        sql += " LIMIT ?"
+        params.append(limit)
+    return list(conn.execute(sql, params))
+
+
+def get_research_item(conn: sqlite3.Connection, item_id: str) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM research_items WHERE item_id = ?", (item_id,)
+    ).fetchone()
+
+
+def research_item_links(conn: sqlite3.Connection, item_id: str) -> list[sqlite3.Row]:
+    return list(
+        conn.execute(
+            "SELECT * FROM run_research_items WHERE item_id = ? ORDER BY created_at",
+            (item_id,),
         )
     )

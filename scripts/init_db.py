@@ -34,11 +34,17 @@ def ensure_directories() -> list[str]:
     return created
 
 
-def initialize(db_path: str | None = None) -> tuple[str, db.MigrationResult, list[str], list[str]]:
+def initialize(
+    db_path: str | None = None,
+) -> tuple[str, db.MigrationResult, list[str], list[str], str | None]:
     created = ensure_directories()
     path = db.resolve_db_path(db_path)
+    existed = path.exists() and path.stat().st_size > 0
+    backup_path: str | None = None
     conn = db.connect(path)
     try:
+        if existed and db.pending_migration_versions(conn):
+            backup_path = str(db.backup_database(conn, path))
         result = db.apply_migrations(conn)
         tables = sorted(
             row["name"]
@@ -56,7 +62,7 @@ def initialize(db_path: str | None = None) -> tuple[str, db.MigrationResult, lis
     finally:
         conn.close()
 
-    return str(path), result, created, tables
+    return str(path), result, created, tables, backup_path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -66,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        path, result, created, tables = initialize(args.db)
+        path, result, created, tables, backup_path = initialize(args.db)
     except Exception as exc:  # noqa: BLE001 - CLI 边界需要统一报告
         print(f"初始化失败：{exc}", file=sys.stderr)
         return 1
@@ -75,6 +81,9 @@ def main(argv: list[str] | None = None) -> int:
         print("已创建目录：")
         for relative in created:
             print(f"  - {relative}")
+
+    if backup_path:
+        print(f"迁移前备份：{backup_path}")
 
     if result.applied:
         versions = ", ".join(f"{version:03d}" for version in result.applied)
