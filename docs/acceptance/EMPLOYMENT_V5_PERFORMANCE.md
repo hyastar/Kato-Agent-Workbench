@@ -9,7 +9,7 @@
 | 1 | 审计、备份、性能协议与埋点 | 完成 | 文档：制定V5浏览器执行与性能验收方案 |
 | 2 | V4 真实浏览器基线 | 完成 | 测试：建立就业采集真实浏览器性能基线 |
 | 3 | 浏览器执行工具对比 | 完成 | 调研：完成浏览器执行工具兼容性对比 |
-| 4 | 优化执行层实现 | 未开始 | 优化：实现浏览器批量操作与文章评论提取 |
+| 4 | 优化执行层实现 | 完成 | 优化：实现浏览器批量操作与文章评论提取 |
 | 5 | 同样本 A/B 测速 | 未开始 | 测试：完成浏览器采集优化前后对照验收 |
 | 6 | 后端选择与文档定版 | 未开始 | 文档：发布V5性能评测与执行架构规范 |
 | 7 | 新 20 篇批次与恢复 | 未开始 | 验证：完成V5真实批次采集与断点恢复 |
@@ -63,4 +63,18 @@
 - 评分合计：A=41、B=46、C=29、D=28（1–5 分制，详见 `docs/performance/BROWSER_BACKEND_EVALUATION.md`）。
 - 决策：本轮采用 **B（Playwright MCP 会话内批量执行）**；A 回退；C/D 因未安装、未实测及浏览器所有权/扩展/daemon 成本排除；E 不采用。
 - 未声明 BrowserSkill/agent-browser 的任何性能或覆盖优势。
+- 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 7 交付表。
+
+## 阶段 4 — 优化执行层实现
+
+- 日期：2026-11-09
+- 新增 `scripts/employment/browser/`：
+  - `contracts.py`：`ArticleTask` / `ArticleResult` / `CommentNode` / 可解释错误；
+  - `actions.py`：经审查的小红书、知乎“展开 + 提取”单次页面动作片段；
+  - `extraction.py`：payload 规范化、50 条一级评论选择、楼中楼计数、覆盖判定、联系方式脱敏；
+  - `runner.py`：`normalize` / `status` CLI 与 checkpoint 写入，不联网。
+- 执行边界：浏览器动作仍由宿主 Agent 通过 Playwright MCP 完成；Python 只处理已返回的 payload，不新增 HTTP 爬虫、不持有浏览器会话。
+- 质量约束：默认 `latest_verified=False`，无排序证据时标 `high_likes`；一级评论 ≤50；楼中楼独立计数；空评论/作者字段不入库。
+- 测试：`python -m unittest discover -v` → **87 个测试全部通过**（新增 7 个浏览器层测试）。
+- 未访问平台；未修改 Campaign/历史数据。
 - 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 7 交付表。
