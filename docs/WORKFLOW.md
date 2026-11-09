@@ -53,6 +53,16 @@
 
 任何阶段需要登录、CAPTCHA、二次验证、付费或超出文档授权范围时，暂停并交回用户；用户确认后继续。
 
+### 3.2 就业情报研究流程
+
+1. 读取具名任务（如 `tasks/EMPLOYMENT_2026_2027.md`），确认届别、关键词、平台上限、白名单与核验要求。
+2. 用 Playwright MCP 在平台内搜索，打开相关详情页，读取标题、来源 URL、可见发布时间、招聘阶段与有限事实；摘要由 Agent 自己组织。
+3. 把 2026 届与 2027 届分开记录；届别不明时写 `unknown`，不按采集时间推断。
+4. 用 `python -m scripts.research_catalog add --json-file <path> --run-id <run-id>` 入库；重复 URL 幂等去重。
+5. 招聘公告、截止日期、薪资等客观事实需在任务列明的官方站点核验；UGC 只能标为经验/线索。`verified` 必须有证据 URL 与核验时间。
+6. 生成 `results.json`、`progress.md`、`report.md`，分别归纳各届别，并列出未核实项；核对报告计数与 SQLite 一致。
+7. 平台受阻时按平台分别记录 `blocked` / `partial`，继续另一平台可访问部分。
+
 ## 4. 运行目录约定
 
 ```text

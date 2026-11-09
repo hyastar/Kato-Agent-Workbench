@@ -15,6 +15,8 @@
 - 每个迁移在事务中执行：脚本内容 + 更新 `user_version` 一起提交；失败则回滚，不会留下“半套结构”。
 - 重复执行是幂等的：已应用的迁移不会重跑，已有数据不会被删除。
 - **已应用的迁移文件不可修改**；结构变化一律新增 `002_*.sql`、`003_*.sql`。
+- `connect_ready()` 按 `PRAGMA user_version` 判断待执行迁移：即使 `tasks` / `datasets` 等基础表已存在，也会应用 `002` 等增量迁移，不会因“表齐全”而跳过。
+- 升级已有数据库前，使用 SQLite 在线备份 API 写入数据库同目录的 `backups/`（在 `data/catalog/` 下，已被 Git 忽略），并校验备份可读。
 
 ## 表结构
 
@@ -74,6 +76,41 @@
 
 主键：`(run_id, dataset_id, action)`，重复关联自动拒绝。
 
+### `research_items` — 就业/行业情报条目
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| `item_id` | TEXT PK | 由 `(platform, canonical_url)` 稳定派生 |
+| `platform` | TEXT NOT NULL | `zhihu` / `xiaohongshu` / `official` / `media` / `other` |
+| `canonical_url` | TEXT NOT NULL | 规范化来源 URL（小写 scheme/host、去 fragment） |
+| `title` | TEXT NOT NULL | 标题或短描述 |
+| `summary` | TEXT | Agent 自写的有限摘要，不存长正文 |
+| `source_type` | TEXT NOT NULL | `official` / `reported` / `ugc` / `search_lead` |
+| `topic` | TEXT NOT NULL | `recruitment` / `experience` / `policy` / `industry` / `salary` / `warning` / `other` |
+| `cohort` | TEXT NOT NULL | `2026` / `2027` / `unknown` |
+| `recruitment_stage` | TEXT NOT NULL | `autumn` / `spring` / `makeup` / `early` / `internship` / `other` / `unknown` |
+| `company` / `city` | TEXT | 可空 |
+| `published_at` | TEXT | 源头发布时间（ISO-8601，可空） |
+| `collected_at` | TEXT NOT NULL | 本次观察时间（UTC ISO-8601） |
+| `verification_status` | TEXT NOT NULL | `unverified` / `verified` / `conflicting` / `stale` |
+| `verification_url` / `verified_at` | TEXT | `verified` 时必须同时提供 |
+| `created_at` / `updated_at` | TEXT | 审计时间 |
+
+唯一性：`(platform, canonical_url)`。同一链接跨平台视为不同条目。
+
+约束：`verification_status='verified'` 时数据库层要求 `verification_url` 与 `verified_at` 均非空；CLI 也会在写入前校验。
+
+### `run_research_items` — 执行与研究条目的关系
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| `run_id` | TEXT FK → `runs` | 执行 ID，级联删除 |
+| `item_id` | TEXT FK → `research_items` | 研究条目，级联删除 |
+| `action` | TEXT | `discovered` / `imported` / `verified` / `updated` |
+| `created_at` | TEXT | 记录时间 |
+
+主键：`(run_id, item_id, action)`，重复关联自动拒绝。
+
 ## 常用操作
 
 ```bash
@@ -82,6 +119,10 @@ python -m scripts.catalog list                # 查看数据集概要
 python -m scripts.catalog list --status candidate --json
 python -m scripts.catalog add --name "..." --source roboflow --source-url "https://..."
 python -m scripts.catalog add --json-file dataset.json
+python -m scripts.research_catalog add --json-file records.json --run-id <run-id>
+python -m scripts.research_catalog list --cohort 2027
+python -m scripts.research_catalog list --platform zhihu --topic recruitment --json
+python -m scripts.research_catalog export --format json
 ```
 
 `catalog add` 按 `(source, source_url, version)` 做 upsert：已存在则更新非空字段，不会产生重复行。
@@ -90,6 +131,6 @@ python -m scripts.catalog add --json-file dataset.json
 
 ## 备份与重置
 
-- 备份：停止写入后复制 `data/catalog/workbench.sqlite3`（以及同目录的 `-wal` / `-shm`，或先执行 `PRAGMA wal_checkpoint(TRUNCATE)`）。
+- 备份：`init_db` 与 `connect_ready()` 在升级已有库前会自动用 SQLite 在线备份 API 写入 `data/catalog/backups/`（被 Git 忽略），并校验备份可读。手动备份时也可停止写入后复制 `data/catalog/workbench.sqlite3`（以及同目录的 `-wal` / `-shm`，或先执行 `PRAGMA wal_checkpoint(TRUNCATE)`）。
 - 重置：删除数据库文件后重新运行 `python -m scripts.init_db`。这只会丢失索引元信息，不会删除 `data/raw` 中的实际文件；删除任何数据文件仍需用户明确确认。
 - 这是单用户本地库，不做云端同步，也不支持多人并发写入。

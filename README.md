@@ -164,6 +164,44 @@ python -m scripts.validate_dataset data/raw/... --json
 
 只做**结构检查**：COCO 的必填字段、ID 引用与 bbox 尺寸；YOLO 的 `images/` + `labels/` 布局、五列格式与归一化坐标。通过不代表数据质量、标签准确率或许可合规。未支持的格式会明确提示“未实现此格式的校验”。
 
+## 就业情报研究工作流
+
+除数据集调研外，工作台支持具名任务 `tasks/EMPLOYMENT_2026_2027.md` 的就业情报研究：由宿主 Agent 通过 Playwright MCP 操作真实 Chrome，读取页面可见信息，再用确定性 CLI 入库并生成报告。
+
+### 1. 任务入口
+
+`tasks/CURRENT_TASK.md` 仍是默认入口。用户在指令中明确点名 `tasks/EMPLOYMENT_2026_2027.md`（或其他具名任务）时，该文件即是本轮任务定义，并作为 `runs/<run-id>/task_snapshot.md` 的快照来源。
+
+### 2. 浏览器采集
+
+- 登录、验证码、设备确认由用户在可见浏览器窗口亲自完成；Agent 不接触密码或 Cookie。
+- 使用页面正常可见的搜索框、结果链接、滚动与详情页；每平台条目上限与关键词以任务文档为准。
+- 不调用隐藏/逆向接口，不抓取登录态私有数据，不进行点赞、评论、私信、发帖等互动。
+- 遇到 403、限流、验证码循环或权限提示时停止该平台，记录 `blocked` / `partial`，不绕过访问控制。
+- 小红书笔记详情需要从搜索结果点击进入（URL 会自动附带 `xsec_token`）；直接拼 `/explore/<id>` 会返回 404。入库只保存不带 token 的规范链接。
+
+### 3. 入库与查询
+
+```bash
+python -m scripts.research_catalog add --json-file records.json --run-id <run-id>
+python -m scripts.research_catalog list --cohort 2027
+python -m scripts.research_catalog list --platform zhihu --topic recruitment
+python -m scripts.research_catalog list --verification unverified --json
+python -m scripts.research_catalog export --format json
+```
+
+`add` 接受 JSON 对象或对象数组，按 `(platform, canonical_url)` 幂等去重；同一链接跨平台不会合并。
+
+### 4. 核验规则
+
+- `source_type` 区分 `official` / `reported` / `ugc` / `search_lead`；UGC 只能作为经验或线索。
+- `verification_status=verified` 必须同时提供 `verification_url` 与 `verified_at`，否则 CLI 拒绝写入。
+- 岗位是否开放、截止日期、薪资数字等客观事实需官方渠道核验；无法确认时写 `unverified` 或“未核实”。
+
+### 5. 运行产物
+
+`runs/<run-id>/` 下保存 `task_snapshot.md`、`progress.md`、`results.json`、`report.md`；本地数据库、运行目录与浏览器 Profile 均不提交 Git。脱敏阶段摘要写入 `docs/acceptance/EMPLOYMENT_PHASES.md`。
+
 ## 浏览器 MCP 与首次登录
 
 Codex 的项目级配置在 `.codex/config.toml`：
@@ -233,7 +271,7 @@ python -m unittest discover -v
 
 - `python -m scripts.init_db` 首次执行 `user_version 0 -> 1`，重复执行输出“已是最新版本”，数据不丢；
 - `python -m scripts.doctor` 结果 `PASS=8 WARN=1 FAIL=0`，唯一 WARN 是 Node 版本；
-- `python -m unittest discover` 全部通过（26 个测试）；
+- `python -m unittest discover` 全部通过（43 个测试）；
 - `npx -y @playwright/mcp@0.0.84 --help` 可正常启动，且确认该版本提供 `--browser`、`--user-data-dir`、`--extension` 参数；
 - 在 `~/.codex/config.toml` 写入 `[projects."<仓库路径>"] trust_level = "trusted"` 后，`codex mcp list` **能列出项目级 `playwright` 服务器**（`enabled`），说明 `.codex/config.toml` 可被 Codex 正确解析；
 - **真实浏览器 E2E**：用标准 MCP stdio 协议直连 `@playwright/mcp@0.0.84`（`--browser=chrome --user-data-dir=../.kato-playwright-profile`），列出 25 个 browser 工具，成功启动 Chrome 并访问 `https://universe.roboflow.com/`，采集到 5 个数据集页面；
@@ -248,6 +286,16 @@ python -m unittest discover -v
 
 Node 22 与 Playwright MCP 的兼容性已验证到“真实浏览器会话可运行”，但项目建议版本仍是 24 / 26 LTS。
 
+### 就业情报工作流实测（2026-11-09）
+
+- SQLite 从 V1 升级到 V2（新增 `research_items` / `run_research_items`），原有 5 条 Roboflow 数据集与 1 条运行记录保留，迁移前自动生成可读备份。
+- 离线测试 43 个全部通过（新增 V1→V2 迁移、去重、核验约束与 CLI 测试）。
+- Playwright MCP 驱动真实 Chrome；知乎与小红书均由用户在浏览器中手动完成登录。
+- 知乎搜索 `2026届 秋招` / `2027届 秋招` / `2027届 校招`，采集 6 条；小红书搜索 `2026届 秋招` / `2027届 秋招`，采集 6 条。
+- 12 条写入 `research_items` 并关联运行 `run_research_items`；2026 届 5 条、2027 届 7 条；全部为 `unverified` UGC。
+- 运行状态为 `partial`：采集完成，但未做官方公告交叉核验。
+- 小红书直接拼 `/explore/<id>` 返回 404，从搜索结果真实点击进入正常；入库链接已去掉 `xsec_token`。
+
 ## 文档索引
 
 - `AGENTS.md`：Agent 行为规范（执行前必读）
@@ -255,4 +303,5 @@ Node 22 与 Playwright MCP 的兼容性已验证到“真实浏览器会话可�
 - `docs/WORKFLOW.md`：执行、失败与恢复流程
 - `docs/DATABASE.md`：表结构与迁移约定
 - `docs/MCP_SETUP.md`：浏览器 MCP 配置与排障
+- `docs/RECRUITMENT_RESEARCH.md`：就业情报来源、分类、核验与报告规范
 - `docs/SAFETY.md`：权限、许可、隐私与人工确认边界
