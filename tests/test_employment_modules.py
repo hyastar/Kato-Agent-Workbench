@@ -78,7 +78,9 @@ class CommentSelectionTests(unittest.TestCase):
 
     def test_over_limit_uses_30_high_likes_plus_20_latest(self) -> None:
         candidates = self._candidates(300)
-        selected, basis = validate.select_comments(candidates, 300)
+        selected, basis = validate.select_comments(
+            candidates, 300, latest_verified=True
+        )
         self.assertEqual(len(selected), 50)
         self.assertEqual(basis, "high_likes_then_latest")
         ids = [item["id"] for item in selected]
@@ -102,6 +104,21 @@ class CommentSelectionTests(unittest.TestCase):
         selected, basis = validate.select_comments(candidates, 80)
         self.assertEqual(len(selected), 50)
         self.assertEqual(basis, "visible_order")
+
+    def test_without_latest_evidence_never_claims_latest(self) -> None:
+        candidates = self._candidates(300)
+        selected, basis = validate.select_comments(candidates, 300)
+        self.assertEqual(len(selected), 50)
+        self.assertEqual(basis, "high_likes")
+        ids = [item["id"] for item in selected]
+        self.assertEqual(len(set(ids)), 50)
+        high_ids = {
+            item["id"]
+            for item in sorted(
+                candidates, key=lambda row: (-int(row["like_count"]), int(row["order"]))
+            )[:30]
+        }
+        self.assertTrue(high_ids <= set(ids))
 
 
 class ValidationTests(unittest.TestCase):

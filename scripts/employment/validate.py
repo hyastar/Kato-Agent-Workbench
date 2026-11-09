@@ -168,12 +168,16 @@ def select_comments(
     total_displayed: int,
     *,
     limit: int = COMMENT_LIMIT,
+    latest_verified: bool = False,
 ) -> tuple[list[dict[str, Any]], str]:
-    """按 V4 规则选择一级评论。
+    """按 V4/V5 规则选择一级评论。
 
     返回 (选中评论列表, 排序策略)。候选需包含 id / like_count / order。
-    总数不超过上限时按可见顺序全部返回；超过时高赞前 30 + 最新前 20，
-    去重后不足 limit 时从剩余可见候选补足。
+    总数不超过上限时按可见顺序全部返回；超过时取高赞前 30。
+
+    `latest_verified=False`（默认）时，不把采集顺序倒序当作“最新”：
+    只按高赞选择，再用可见顺序补足，并标明 `high_likes`。
+    只有 `latest_verified=True`（页面可核实“最新排序”）才使用高赞 + 最新。
     """
     items = list(candidates)
     if limit < 1:
@@ -187,18 +191,26 @@ def select_comments(
     high = sorted(items, key=lambda item: (-int(item["like_count"]), int(item.get("order", 0))))[
         :HIGH_LIKE_QUOTA
     ]
-    latest = sorted(items, key=lambda item: int(item.get("order", 0)), reverse=True)[
-        :LATEST_QUOTA
-    ]
 
     selected: list[dict[str, Any]] = []
     seen: set[Any] = set()
-    for item in [*high, *latest]:
+    for item in high:
         key = item.get("id")
         if key in seen:
             continue
         seen.add(key)
         selected.append(item)
+
+    if latest_verified:
+        latest = sorted(items, key=lambda item: int(item.get("order", 0)), reverse=True)[
+            :LATEST_QUOTA
+        ]
+        for item in latest:
+            key = item.get("id")
+            if key in seen:
+                continue
+            seen.add(key)
+            selected.append(item)
 
     for item in items:
         if len(selected) >= limit:
@@ -209,7 +221,7 @@ def select_comments(
         seen.add(key)
         selected.append(item)
 
-    return selected[:limit], "high_likes_then_latest"
+    return selected[:limit], "high_likes_then_latest" if latest_verified else "high_likes"
 
 
 def validate_comment_tree(comments: Iterable[dict[str, Any]]) -> None:
