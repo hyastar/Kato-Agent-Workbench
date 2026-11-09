@@ -135,3 +135,4 @@
 18. 采集数据、SQLite、Markdown 档案、`runs/`、`workspace/`、Profile、Cookie、Token、`.env` 不提交 Git。
 19. 保留 Roboflow 工作流、历史数据集与历史就业记录；不删除、不覆盖。
 20. 每个开发阶段完成后执行测试、中文 Commit、推送 `origin/main`，并核对本地与远端 SHA；推送失败或分叉时如实报告，不强制推送。
+21. 平台操作细节见 `docs/platforms/ZHIHU.md` 与 `docs/platforms/XIAOHONGSHU.md`；页面结构变化时先更新手册，再继续批量采集。
