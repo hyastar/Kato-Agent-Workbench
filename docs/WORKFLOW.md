@@ -4,7 +4,7 @@
 
 ## 0. 何时可以开始
 
-只有用户**明确**要求“执行当前任务”（或等价表述）时才可开始。
+只有用户**明确**要求“执行当前任务”（或等价表述）时才可开始。用户明确点名并授权 `tasks/` 下的某个具名任务（例如 `tasks/EMPLOYMENT_2026_2027.md`）时，该文件即为本轮任务定义。
 
 以下行为都**不构成**执行授权：
 
@@ -15,7 +15,7 @@
 
 ## 1. 开始前的检查
 
-1. 阅读 `AGENTS.md`、`tasks/CURRENT_TASK.md`；按需阅读本文件与 `docs/SAFETY.md`。
+1. 阅读 `AGENTS.md`、本轮任务文档（默认 `tasks/CURRENT_TASK.md`，或用户点名的具名任务）；按需阅读本文件与 `docs/SAFETY.md`。
 2. 确认任务文档包含目标、范围、网站白名单、筛选条件、人工确认点和验收标准；缺失时先向用户澄清，不自行补造。
 3. 确认运行环境：当前 Python 解释器来自 `Kato-Agent-Workbench` 环境；`python -m scripts.doctor` 无 FAIL。
 4. 确认浏览器 MCP 可用；不可用时如实报告，不假装已访问网站。
@@ -25,7 +25,7 @@
 
 1. 生成唯一 `run-id`：UTC 时间戳 + 4 位随机十六进制，例如 `20261106T082500Z-a1b2`。同一秒内重试必须换新后缀，绝不覆盖已有目录。
 2. 创建 `runs/<run-id>/`。
-3. 把当前 `tasks/CURRENT_TASK.md` 原样复制为 `runs/<run-id>/task_snapshot.md`（不可变快照）。
+3. 把本轮任务文档原样复制为 `runs/<run-id>/task_snapshot.md`（不可变快照；具名任务则复制该文件）。
 4. 计算快照 SHA-256，写入 SQLite：
    - `tasks` 表登记任务定义（`task_id` 可由 `CURRENT_TASK.md` 相对路径与内容哈希派生，重复内容复用同一条）；
    - `runs` 表登记本次执行，状态先 `pending`，正式开始后改 `running`。
@@ -35,14 +35,23 @@
 
 推荐按阶段推进，每阶段结束更新 `progress.md`：
 
-1. **调研**：通过浏览器 MCP 在允许范围内搜索候选，记录标题、URL、版本、类别、规模、许可；不确定字段写“未核实”。
+1. **调研**：通过 Playwright MCP 操控真实 Chrome，在允许范围内使用页面正常的搜索、点击、滚动与详情页导航；记录标题、URL、发布时间（若可见）、类别/规模/许可等字段，不确定字段写“未核实”。
 2. **候选整理**：用 `python -m scripts.catalog add` 登记候选（`status=candidate`），关联到本次 run（`action=discovered`）。
 3. **人工确认**：向用户展示候选清单与下载体积，等待明确批准。
 4. **下载**：经批准后保存到 `data/raw/<source>/<dataset>/<version>/`；记录 `source_url`、许可、获取日期、大小、SHA-256；关联 `action=downloaded`。
 5. **校验**：运行 `python -m scripts.validate_dataset <path>`；结构不合格时标记 `failed` 并保留失败原因。
 6. **入库与报告**：更新数据集状态与路径，写 `results.json`、`report.md`，把 `runs` 状态改为 `completed` 或 `partial`。
 
-任何阶段需要登录、CAPTCHA、二次验证、付费或超出文档授权范围时，暂停并交回用户。
+### 3.1 浏览器页面采集规程（情报类任务）
+
+1. 使用 Playwright MCP + 独立持久化 Chrome Profile；先打开平台正常页面，再使用页面可见的搜索框、结果链接、滚动与详情页。
+2. 遇到登录、二维码、验证码、设备确认或 Cloudflare 时暂停，请用户在可见浏览器窗口亲自完成；用户确认后继续。
+3. 按任务文档的每平台上限采集，不连续翻页；优先打开详情页读取标题、来源 URL、发布时间与有限事实，摘要由 Agent 自己组织。
+4. 不调用隐藏或逆向接口，不抓取登录态 API，不批量下载媒体，不采集非任务必需的个人信息。
+5. 遇到 403、限流、验证码循环、权限提示等技术性拒绝时停止该平台，记录 `blocked` / `partial` 与现象，继续另一平台；不绕过访问控制。
+6. 采集结果用 `python -m scripts.research_catalog add` 入库，重复 URL 幂等去重，并关联本次 `run-id`。
+
+任何阶段需要登录、CAPTCHA、二次验证、付费或超出文档授权范围时，暂停并交回用户；用户确认后继续。
 
 ## 4. 运行目录约定
 
