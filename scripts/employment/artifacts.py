@@ -28,7 +28,13 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def artifact_path(platform: str, item_id: str, kind: str) -> Path:
+def artifact_path(
+    platform: str,
+    item_id: str,
+    kind: str,
+    *,
+    root: str | Path | None = None,
+) -> Path:
     """生成产物绝对路径。
 
     posts/<item_id>.md
@@ -38,7 +44,8 @@ def artifact_path(platform: str, item_id: str, kind: str) -> Path:
     """
     if kind not in KIND_DIRS:
         raise ValueError(f"不支持的产物类型：{kind}")
-    directory = EMPLOYMENT_ROOT / platform / KIND_DIRS[kind]
+    base = Path(root) if root is not None else EMPLOYMENT_ROOT
+    directory = base / platform / KIND_DIRS[kind]
     if kind == "post_markdown":
         name = f"{item_id}.md"
     elif kind == "comments_markdown":

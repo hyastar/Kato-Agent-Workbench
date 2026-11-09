@@ -245,7 +245,12 @@ def validate_comment_tree(comments: Iterable[dict[str, Any]]) -> None:
 
 def validate_stats(stats: dict[str, Any]) -> dict[str, Any]:
     """校验评论统计字段。"""
-    coverage = normalize_enum(stats.get("coverage_status"), COVERAGE_STATUSES, "coverage_status")
+    try:
+        coverage = normalize_enum(
+            stats.get("coverage_status"), COVERAGE_STATUSES, "coverage_status"
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
     cleaned = {**stats, "coverage_status": coverage}
     for field in (
         "displayed_total",

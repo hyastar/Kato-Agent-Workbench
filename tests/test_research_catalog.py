@@ -63,7 +63,7 @@ class ResearchCatalogCliTests(unittest.TestCase):
 
         conn = sqlite3.connect(str(self.db_path))
         try:
-            self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 2)
+            self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 3)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM research_items").fetchone()[0], 1)
         finally:
             conn.close()

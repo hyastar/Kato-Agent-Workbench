@@ -79,8 +79,40 @@ RECRUITMENT_STAGES: tuple[str, ...] = (
     "other",
     "unknown",
 )
-VERIFICATION_STATUSES: tuple[str, ...] = ("unverified", "verified", "conflicting", "stale")
+VERIFICATION_STATUSES: tuple[str, ...] = (
+    "unverified",
+    "partially_verified",
+    "verified",
+    "contradicted",
+    "expired",
+)
 RESEARCH_ACTIONS: tuple[str, ...] = ("discovered", "imported", "verified", "updated")
+COMMENT_SORT_BASES: tuple[str, ...] = (
+    "high_likes",
+    "latest",
+    "high_likes_then_latest",
+    "visible_order",
+)
+COMMENT_COVERAGE_STATUSES: tuple[str, ...] = (
+    "complete",
+    "partial",
+    "blocked",
+    "not_available",
+)
+CAMPAIGN_STATUSES: tuple[str, ...] = (
+    "pending",
+    "running",
+    "partial",
+    "completed",
+    "blocked",
+    "failed",
+)
+ARTIFACT_TYPES: tuple[str, ...] = (
+    "post_markdown",
+    "comments_markdown",
+    "index",
+    "report",
+)
 REQUIRED_TABLES: tuple[str, ...] = (
     "tasks",
     "runs",
@@ -88,6 +120,10 @@ REQUIRED_TABLES: tuple[str, ...] = (
     "run_datasets",
     "research_items",
     "run_research_items",
+    "research_comments",
+    "research_campaigns",
+    "research_batches",
+    "research_artifacts",
 )
 
 
@@ -178,6 +214,8 @@ def apply_migrations(
         if version <= current:
             continue
         sql = path.read_text(encoding="utf-8")
+        # 迁移可能重建被外键引用的表；在事务外临时关闭外键，迁移后统一检查。
+        conn.execute("PRAGMA foreign_keys = OFF")
         try:
             conn.executescript(
                 "BEGIN;\n" + sql + f"\nPRAGMA user_version = {version};\nCOMMIT;"
@@ -185,7 +223,14 @@ def apply_migrations(
         except Exception:
             if conn.in_transaction:
                 conn.rollback()
+            conn.execute("PRAGMA foreign_keys = ON")
             raise
+        conn.execute("PRAGMA foreign_keys = ON")
+        violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise RuntimeError(
+                f"迁移 {version:03d} 后存在外键违规：{len(violations)} 条"
+            )
         current = version
         applied.append(version)
 

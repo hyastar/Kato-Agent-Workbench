@@ -92,7 +92,7 @@
 | `company` / `city` | TEXT | 可空 |
 | `published_at` | TEXT | 源头发布时间（ISO-8601，可空） |
 | `collected_at` | TEXT NOT NULL | 本次观察时间（UTC ISO-8601） |
-| `verification_status` | TEXT NOT NULL | `unverified` / `verified` / `conflicting` / `stale` |
+| `verification_status` | TEXT NOT NULL | `unverified` / `partially_verified` / `verified` / `contradicted` / `expired` |
 | `verification_url` / `verified_at` | TEXT | `verified` 时必须同时提供 |
 | `created_at` / `updated_at` | TEXT | 审计时间 |
 
@@ -110,6 +110,42 @@
 | `created_at` | TEXT | 记录时间 |
 
 主键：`(run_id, item_id, action)`，重复关联自动拒绝。
+
+### `research_comments` — 文章评论与楼中楼（V3）
+
+| 列 | 说明 |
+|---|---|
+| `comment_id` | 本地主键 |
+| `research_item_id` | FK → `research_items` |
+| `platform_comment_id` | 页面可见评论对象 ID，可空 |
+| `parent_comment_id` | 直接父评论内部 ID，一级评论为空 |
+| `root_comment_id` | 所属一级评论内部 ID |
+| `comment_level` | 1 = 一级评论；≥2 = 楼中楼 |
+| `content` | 清理与脱敏后的文本 |
+| `content_hash` | 内容指纹 |
+| `like_count` | 可见点赞数，可空 |
+| `reply_count_displayed` | 页面显示回复数，可空 |
+| `published_at` | 可确认的绝对时间，可空 |
+| `published_time_displayed` | 页面相对时间原文 |
+| `collected_at` / `collection_order` | 采集时间与顺序 |
+| `sort_basis` | `high_likes` / `latest` / `high_likes_then_latest` / `visible_order` |
+| `redaction_status` | 脱敏状态 |
+
+唯一索引：`(research_item_id, platform_comment_id)`。无平台 ID 时按 `(research_item_id, parent_comment_id, content_hash, comment_level, published_time_displayed)` 辅助去重。不设作者昵称、作者 ID、头像、主页等字段。
+
+### `research_campaigns` / `research_batches` — 长期 Campaign 与批次（V3）
+
+- `research_campaigns`：目标总数、平台/届别目标、实际数量、状态与起止时间。
+- `research_batches`：平台、届别、关键词、目标/发现/成功/失败文章数、一级评论数、楼中楼数、状态、checkpoint 路径与错误摘要。
+- 状态：`pending` / `running` / `partial` / `completed` / `blocked` / `failed`。
+
+### `research_artifacts` — 文章/评论/索引/报告产物（V3）
+
+记录 `research_item_id`（索引/报告可为空）、产物类型、仓库相对路径、SHA-256、生成时间与状态。
+
+### `research_items` 的评论统计字段（V3）
+
+`displayed_comments_total`、`displayed_top_level`、`collected_top_level`、`displayed_replies_total`、`collected_replies`、`comment_coverage_status`、`comment_sort_basis`、`campaign_id`、`batch_id`、`post_markdown_path`、`comments_markdown_path`。评论正文只存 `research_comments`，不塞入文章单列。
 
 ## 常用操作
 

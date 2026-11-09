@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1 | 项目审计与架构设计 | 完成 | 文档：完成就业情报模块化架构与数据模型设计 |
 | 2 | Python 模块化重构 | 完成 | 重构：拆分研究数据处理与存储模块 |
-| 3 | SQLite V3 与文件档案 | 未开始 | 数据库：新增评论层级与就业采集批次管理 |
+| 3 | SQLite V3 与文件档案 | 完成 | 数据库：新增评论层级与就业采集批次管理 |
 | 4 | 浏览器工作流与 20 篇试采集 | 未开始 | 测试：完成就业文章与评论采集小规模验收 |
 | 5 | 1000 篇真实采集 | 未开始 | 采集：完成就业文章评论与楼中楼入库 |
 | 6 | 分析、报告与最终验收 | 未开始 | 报告：完成 2026 届与 2027 届就业情报分析 |
@@ -45,4 +45,22 @@
 - 兼容性：`scripts/research_catalog.py` 未改参数与行为；Roboflow 与旧测试保持通过。
 - 测试：`python -m unittest discover -v` → **62 个测试全部通过**（新增 19 个；原 43 个全部保留）。
 - 数据库：未修改 schema，未写入真实数据。
+- 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 6 交付表。
+
+## 阶段 3 — SQLite V3 与文件档案
+
+- 日期：2026-11-09
+- 迁移：新增 `003_employment_comments_and_batches.sql`（未修改 001/002）。
+  - 重建 `research_items` 以扩展核验状态并加入评论统计/档案/Campaign 字段；
+  - 新增 `research_comments`、`research_campaigns`、`research_batches`、`research_artifacts`；
+  - 迁移期间临时关闭外键，迁移后执行 `foreign_key_check`。
+- 真实库升级：`user_version 2 -> 3`；迁移前自动备份（118,784 字节，SHA-256 `e34f5dfea7b3bded35def4cb6edceb94a84e7a13c1fe0d550ee7d4b2fc7623c3`）。
+- 历史数据：`datasets=5`、`runs=2`、`research_items=12`、`run_research_items=12` 全部保留；`integrity_check=ok`，外键违规 0。
+- 新增能力：
+  - `repository.import_comment_thread`：父子/根评论层级、幂等导入、无平台 ID 时组合去重、作者字段拒绝；
+  - `repository.update_article_stats`、Campaign/Batch/Artifact CRUD；
+  - `exporter.export_article_artifacts`：文章与评论 Markdown、SHA 登记、回写路径；
+  - `exporter.export_platform_index`：平台 all / 2026 / 2027 索引。
+- 测试：`python -m unittest discover -v` → **70 个测试全部通过**（新增 8 个 V3/评论/导出测试）。
+- 未访问外部站点，未写入真实评论数据。
 - 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 6 交付表。
