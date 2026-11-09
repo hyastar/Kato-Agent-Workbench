@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1 | 审计、备份、性能协议与埋点 | 完成 | 文档：制定V5浏览器执行与性能验收方案 |
 | 2 | V4 真实浏览器基线 | 完成 | 测试：建立就业采集真实浏览器性能基线 |
-| 3 | 浏览器执行工具对比 | 未开始 | 调研：完成浏览器执行工具兼容性对比 |
+| 3 | 浏览器执行工具对比 | 完成 | 调研：完成浏览器执行工具兼容性对比 |
 | 4 | 优化执行层实现 | 未开始 | 优化：实现浏览器批量操作与文章评论提取 |
 | 5 | 同样本 A/B 测速 | 未开始 | 测试：完成浏览器采集优化前后对照验收 |
 | 6 | 后端选择与文档定版 | 未开始 | 文档：发布V5性能评测与执行架构规范 |
@@ -47,4 +47,20 @@
   - 一级评论 247（未按 50 截断的完整加载测量）、楼中楼 150；覆盖 complete 9 / partial 3。
 - 数据质量：评论树、脱敏、页面显示/实际计数均按 V4 规则记录；未写生产库，未重复计入 Campaign。
 - 局限：未做冷/热缓存重复；小红书评论数与搜索卡片位置有波动；p95 仅描述。
+- 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 7 交付表。
+
+## 阶段 3 — 浏览器执行工具对比
+
+- 日期：2026-11-09
+- 候选：
+  - A：现有 Playwright MCP 0.0.84 逐步操作（已实测基线）；
+  - B：Playwright MCP 会话内合并确定性步骤（`browser_evaluate` 一次完成滚动/展开/提取）；
+  - C：Tencent BrowserSkill（`bsk` CLI + daemon + Chrome/Edge 扩展）；
+  - D：vercel-labs agent-browser（Rust CLI + daemon + CDP）；
+  - E：Browser4（仅架构调查）。
+- 本机状态：`bsk` 与 `agent-browser` 均未安装；未修改系统环境，未安装扩展或 daemon。
+- 官方资料核对：Playwright MCP 支持持久化 Profile、`--snapshot-mode`、`--extension`；BrowserSkill 需要 CLI/daemon/扩展，Windows x64 支持；agent-browser 支持 CDP attach 与紧凑 snapshot，但为独立 daemon/session。
+- 评分合计：A=41、B=46、C=29、D=28（1–5 分制，详见 `docs/performance/BROWSER_BACKEND_EVALUATION.md`）。
+- 决策：本轮采用 **B（Playwright MCP 会话内批量执行）**；A 回退；C/D 因未安装、未实测及浏览器所有权/扩展/daemon 成本排除；E 不采用。
+- 未声明 BrowserSkill/agent-browser 的任何性能或覆盖优势。
 - 提交：中文提交并推送 `origin/main`；SHA 记录于阶段 7 交付表。
