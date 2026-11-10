@@ -146,3 +146,34 @@ async () => {
   };
 }
 """
+
+# 搜索结果发现：只读取当前搜索结果页的链接，不进入详情。
+DISCOVER_XHS_RESULTS = r"""
+() => {
+  const seen = new Set();
+  const items = [];
+  for (const a of [...document.querySelectorAll('a[href*="/search_result/"],a[href*="/explore/"]')]) {
+    const href = a.href.split('?')[0];
+    const text = (a.innerText || '').trim().replace(/\s+/g, ' ');
+    if (!href || !text || text.length < 4 || seen.has(href)) continue;
+    seen.add(href);
+    items.push({href, text: text.slice(0, 160)});
+  }
+  return {url: location.href, items};
+}
+"""
+
+DISCOVER_ZHIHU_RESULTS = r"""
+() => {
+  const seen = new Set();
+  const items = [];
+  for (const a of [...document.querySelectorAll('a[href*="/question/"],a[href*="/p/"]')]) {
+    const href = a.href.split('?')[0];
+    const text = (a.innerText || '').trim().replace(/\s+/g, ' ');
+    if (!href || !text || text.length < 4 || seen.has(href)) continue;
+    seen.add(href);
+    items.push({href, text: text.slice(0, 160)});
+  }
+  return {url: location.href, items};
+}
+"""

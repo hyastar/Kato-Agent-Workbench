@@ -14,6 +14,7 @@ from typing import Any
 
 from scripts import db
 from scripts.employment.browser.contracts import ArticleTask
+from scripts.employment.browser.discovery import build_queue
 from scripts.employment.browser.extraction import normalize_payload
 
 
@@ -78,9 +79,41 @@ def main(argv: list[str] | None = None) -> int:
     status_parser = subparsers.add_parser("status", help="读取 checkpoint")
     status_parser.add_argument("--checkpoint", required=True)
 
+    queue_parser = subparsers.add_parser("queue", help="规范化搜索结果并入队")
+    queue_parser.add_argument("--platform", required=True, choices=("xiaohongshu", "zhihu"))
+    queue_parser.add_argument("--keyword", default="")
+    queue_parser.add_argument("--payload", required=True, help="搜索结果 JSON（含 items）")
+    queue_parser.add_argument("--known-json", help="已知 canonical_url 数组 JSON")
+    queue_parser.add_argument("--db", help="从 SQLite 读取已知 URL（可选）")
+    queue_parser.add_argument("--output", help="队列 JSON 输出路径")
+
     args = parser.parse_args(argv)
     if args.command == "status":
         print(Path(args.checkpoint).read_text(encoding="utf-8"))
+        return 0
+    if args.command == "queue":
+        payload = json.loads(Path(args.payload).read_text(encoding="utf-8"))
+        known: set[str] = set()
+        if args.known_json:
+            known.update(json.loads(Path(args.known_json).read_text(encoding="utf-8")))
+        if args.db:
+            conn = db.connect_ready(args.db)
+            try:
+                known.update(
+                    row["canonical_url"]
+                    for row in conn.execute(
+                        "SELECT canonical_url FROM research_items WHERE platform = ?",
+                        (args.platform,),
+                    ).fetchall()
+                )
+            finally:
+                conn.close()
+        queue = build_queue(args.platform, args.keyword, payload.get("items") or [], known)
+        text = json.dumps(queue, ensure_ascii=False, indent=2)
+        if args.output:
+            Path(args.output).write_text(text, encoding="utf-8", newline="")
+        else:
+            print(text)
         return 0
 
     task = task_from_dict(json.loads(Path(args.task).read_text(encoding="utf-8")))
