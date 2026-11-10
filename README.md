@@ -1,15 +1,15 @@
 # Kato-Agent-Workbench
 
-一个由**现有编码 Agent（Codex / Zcode 等）驱动**的个人 AI 研究与数据采集工作台。
+一个由**现有编码 Agent（Codex / Zcode 等）开发与监督**的个人 AI 研究与数据采集工作台，包含独立运行的采集引擎 `kato_engine/`（Kato Collection Engine V6）。
 
-仓库本身不是 AI Agent，也不是后台服务：理解任务、规划步骤、操作浏览器由宿主 Agent 完成；本仓库提供规范（`AGENTS.md`）、任务定义（`tasks/`）、确定性 Python 工具（`scripts/`）、SQLite 元信息库与执行记录（`runs/`）。
+宿主 Agent 负责理解任务、架构决策、编码与验收；V6 引擎负责浏览器会话、关键词调度、候选队列与连续采集；`scripts/` 提供确定性离线工具；SQLite 与 Markdown 保存事实数据。
 
 ## 不是什么
 
-- 不是独立的 Agent 引擎，不包含 LangChain / CrewAI / AutoGen 等框架；
+- 不是通用 Agent 引擎，不包含 LangChain / CrewAI / AutoGen 等框架；
 - 不是 Web 服务或前端应用，没有 FastAPI / React；
 - 不是数据仓库：`data/raw/` 存原始文件，数据库只存元信息与索引；
-- 不会自动开始采集：只有你明确说“执行当前任务”才会执行。
+- 不会自行发起采集：只有你明确说“执行当前任务”才会启动引擎。
 
 ## 目录结构
 
@@ -24,8 +24,10 @@ Kato-Agent-Workbench/
 │   ├── TEMPLATE.md         # 任务模板
 │   └── archive/            # 历史任务快照
 ├── docs/                   # 架构、流程、数据库、MCP、安全文档
-├── db/migrations/          # SQLite 迁移（001_init.sql）
-├── scripts/                # 确定性 Python 工具
+│   └── v6/                 # V6 审计与架构
+├── db/migrations/          # SQLite 迁移（001–005）
+├── scripts/                # 确定性离线工具
+├── kato_engine/            # V6 采集引擎（浏览器会话、调度、采集、落库）
 ├── data/
 │   ├── raw/                # 原始下载文件（不覆盖）
 │   ├── processed/          # 处理后数据
@@ -44,10 +46,10 @@ Kato-Agent-Workbench/
 | Python | **3.12** | 由 `environment.yml` 固定 |
 | Node.js | LTS | 优先 26 LTS；不兼容时用 24 LTS |
 | npx | 随 Node 提供 | 用于启动 Playwright MCP，无需 `package.json` |
-| 浏览器 | Chrome / Edge / Chromium | 供 Playwright MCP 使用 |
-| 编码 Agent | Codex 或其他支持 MCP 的客户端 | 任务执行者 |
+| 浏览器 | Chrome（本机已安装） | V6 引擎通过 `channel="chrome"` 驱动 |
+| 编码 Agent | Codex / Zcode | 开发、监督与验收 |
 
-本仓库不使用 pnpm，不创建前端工程；Python 只依赖标准库。
+本仓库不使用 pnpm，不创建前端工程。`scripts/` 只依赖标准库；V6 引擎额外依赖 Python 包 `playwright`（运行 `python -m pip install playwright`），不需要下载 Chromium。
 
 ## 快速开始
 
