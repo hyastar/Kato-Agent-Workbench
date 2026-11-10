@@ -12,6 +12,9 @@ from pathlib import Path
 
 from scripts import db, research_catalog
 
+# 迁移版本以迁移目录为准，避免每次新增迁移都要改测试。
+LATEST_VERSION = db.migration_files()[-1][0]
+
 
 def _run(argv: list[str]) -> tuple[int, str, str]:
     stdout, stderr = io.StringIO(), io.StringIO()
@@ -63,7 +66,7 @@ class ResearchCatalogCliTests(unittest.TestCase):
 
         conn = sqlite3.connect(str(self.db_path))
         try:
-            self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 4)
+            self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), LATEST_VERSION)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM research_items").fetchone()[0], 1)
         finally:
             conn.close()

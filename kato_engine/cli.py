@@ -135,6 +135,76 @@ def cmd_browser_open(args: argparse.Namespace) -> int:
     return 0 if payload.get("ok") else 2
 
 
+def cmd_plan(args: argparse.Namespace) -> int:
+    """展示关键词调度器下一步会执行哪些查询（只读，不联网）。"""
+    from kato_engine.discovery.candidate_queue import CandidateQueue
+    from kato_engine.discovery.keyword_planner import KeywordPlanner, load_keyword_library
+    from kato_engine.storage.repository import EngineRepository
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    campaign_id = args.campaign or library.campaign
+    repo, report = EngineRepository.open(settings)
+    try:
+        accepted = repo.dimension_article_counts(campaign_id)
+        pipeline = CandidateQueue(repo).dimension_pipeline(campaign_id=campaign_id)
+        executed = repo.executed_queries(args.platform)
+        planner = KeywordPlanner(
+            library,
+            executed_queries=executed,
+            accepted_by_dimension=accepted,
+            pipeline_by_dimension=pipeline,
+        )
+        plans = []
+        for _ in range(max(args.limit, 0)):
+            plan = planner.next_plan()
+            if plan is None:
+                break
+            plans.append(plan.to_dict())
+            executed.add(plan.combined_query)
+            planner.executed.add(plan.combined_query)
+        payload = {
+            "campaign_id": campaign_id,
+            "platform": args.platform,
+            "schema_version": report.to_version,
+            "library_dimensions": len(library.dimensions),
+            "library_keywords": sum(len(d.keywords) for d in library.dimensions),
+            "accepted_by_dimension": accepted,
+            "pipeline_by_dimension": pipeline,
+            "executed_queries": len(executed),
+            "plans": plans,
+            "exhausted_dimensions": planner.exhausted_dimensions(),
+        }
+    finally:
+        repo.close()
+    _print(payload)
+    return 0
+
+
+def cmd_queue_stats(args: argparse.Namespace) -> int:
+    from kato_engine.discovery.candidate_queue import CandidateQueue
+    from kato_engine.discovery.keyword_planner import load_keyword_library
+    from kato_engine.storage.repository import EngineRepository
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    campaign_id = args.campaign or library.campaign
+    repo, report = EngineRepository.open(settings)
+    try:
+        queue = CandidateQueue(repo)
+        payload = {
+            "campaign_id": campaign_id,
+            "schema_version": report.to_version,
+            "states": queue.stats(campaign_id=campaign_id, platform=args.platform),
+            "campaign_articles": repo.campaign_article_counts(campaign_id),
+            "dimensions": repo.dimension_article_counts(campaign_id),
+        }
+    finally:
+        repo.close()
+    _print(payload)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kato-engine", description=f"Kato Collection Engine V6 {__version__}"
@@ -153,6 +223,17 @@ def build_parser() -> argparse.ArgumentParser:
     open_cmd.add_argument("--seconds", type=int, default=20)
     open_cmd.add_argument("--profile")
     open_cmd.set_defaults(func=cmd_browser_open)
+
+    plan_cmd = sub.add_parser("plan", help="展示关键词调度的下一步查询")
+    plan_cmd.add_argument("--platform", required=True, choices=("xiaohongshu", "zhihu"))
+    plan_cmd.add_argument("--campaign")
+    plan_cmd.add_argument("--limit", type=int, default=3)
+    plan_cmd.set_defaults(func=cmd_plan)
+
+    stats_cmd = sub.add_parser("queue-stats", help="查看候选队列与文章分布")
+    stats_cmd.add_argument("--platform", choices=("xiaohongshu", "zhihu"))
+    stats_cmd.add_argument("--campaign")
+    stats_cmd.set_defaults(func=cmd_queue_stats)
 
     return parser
 

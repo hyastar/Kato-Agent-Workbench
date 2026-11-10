@@ -137,6 +137,11 @@ REQUIRED_TABLES: tuple[str, ...] = (
     "research_artifacts",
     "research_search_queries",
     "research_keyword_candidates",
+    # V6 采集引擎（005 迁移）
+    "engine_candidates",
+    "engine_query_runs",
+    "engine_runs",
+    "engine_metrics",
 )
 
 
