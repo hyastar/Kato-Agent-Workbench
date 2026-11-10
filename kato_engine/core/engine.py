@@ -429,8 +429,12 @@ class CampaignEngine:
                 return hit
 
         if platform == "xiaohongshu":
-            # 页面仍在该查询结果页，可以按 note_id 定位卡片。
+            # 当前查询结果里没有这条候选：仍可按 note_id 定位卡片；
+            # 若这次搜索返回过它的 href，则优先用 href 导航（含一次性 token）。
             note_id = url.rstrip("/").rsplit("/", 1)[-1]
+            for hit in context["outcome"].hits:
+                if hit.canonical_url == url:
+                    return hit
             return SearchHit(
                 title=str(candidate.get("title_hint") or ""),
                 canonical_url=url,

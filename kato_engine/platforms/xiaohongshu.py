@@ -192,7 +192,8 @@ class XiaohongshuAdapter:
                     title=title,
                     canonical_url=canonical,
                     raw_index=int(record.get("index") or 0),
-                    extra={"note_id": note_id},
+                    # href 含 xsec_token：只在内存里用于本次点击/导航，绝不入库。
+                    extra={"note_id": note_id, "href": str(record.get("href") or "")},
                 )
             )
         if not hits:
@@ -213,6 +214,19 @@ class XiaohongshuAdapter:
             raise SelectorMissingError("候选缺少 note_id，无法从搜索页点击进入")
         card = self._locate_card(page, note_id)
         if card is None:
+            href = hit.extra.get("href") or ""
+            if href:
+                # 搜索结果重排导致卡片消失：用同一搜索页给出的 href 直接导航。
+                target_url = href if href.startswith("http") else f"{self.home_url}{href}"
+                page.goto(target_url, wait_until="domcontentloaded", timeout=30_000)
+                page.wait_for_timeout(2_000)
+                self._raise_if_blocked(page, context="详情页")
+                final_url = strip_query(page.url)
+                if note_id not in final_url:
+                    raise IrrelevantContentError(
+                        f"详情页与候选不匹配：{final_url}", detail={"note_id": note_id}
+                    )
+                return page, canonical_url(self.name, final_url)
             raise SelectorMissingError(
                 "搜索页上找不到该笔记卡片（结果可能已重排）",
                 detail={"note_id": note_id},
