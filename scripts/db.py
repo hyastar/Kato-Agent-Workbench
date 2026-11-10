@@ -113,6 +113,17 @@ ARTIFACT_TYPES: tuple[str, ...] = (
     "index",
     "report",
 )
+EMPLOYMENT_TOPICS: tuple[str, ...] = (
+    "salary", "job_search", "probation", "layoff", "home_idle",
+    "factory", "computer", "machinery", "campus", "work_life", "other",
+)
+EMPLOYMENT_STATUSES: tuple[str, ...] = (
+    "job_seeking", "employed", "probation", "left", "unemployed",
+    "waiting", "career_change", "other", "unknown",
+)
+EXPERIENCE_TYPES: tuple[str, ...] = (
+    "personal", "secondhand", "recruitment_ad", "opinion", "unknown",
+)
 REQUIRED_TABLES: tuple[str, ...] = (
     "tasks",
     "runs",
@@ -124,6 +135,8 @@ REQUIRED_TABLES: tuple[str, ...] = (
     "research_campaigns",
     "research_batches",
     "research_artifacts",
+    "research_search_queries",
+    "research_keyword_candidates",
 )
 
 

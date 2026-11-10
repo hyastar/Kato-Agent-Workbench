@@ -55,7 +55,7 @@ class V3MigrationTests(unittest.TestCase):
         conn = db.connect_ready(self.db_path)
         self.addCleanup(conn.close)
 
-        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 3)
+        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 4)
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM research_items").fetchone()[0], 1)
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM run_research_items").fetchone()[0], 1)
         self.assertEqual(conn.execute("PRAGMA foreign_key_check").fetchall(), [])

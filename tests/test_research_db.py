@@ -52,7 +52,7 @@ class ResearchDatabaseTests(unittest.TestCase):
 
     def test_fresh_database_reaches_v3(self) -> None:
         conn = self._open()
-        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 3)
+        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 4)
         self.assertEqual(db.missing_tables(conn), [])
         self.assertEqual(conn.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
@@ -60,7 +60,7 @@ class ResearchDatabaseTests(unittest.TestCase):
         _create_v1_database(self.db_path)
         conn = self._open()
 
-        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 3)
+        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 4)
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM datasets").fetchone()[0], 1)
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0], 1)
         self.assertIsNotNone(db.get_dataset(conn, "ds_v1"))
@@ -91,7 +91,7 @@ class ResearchDatabaseTests(unittest.TestCase):
             raw.close()
 
         conn = self._open()
-        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 3)
+        self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 4)
         self.assertEqual(
             conn.execute(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' "
@@ -109,7 +109,7 @@ class ResearchDatabaseTests(unittest.TestCase):
 
         conn = db.connect_ready(self.db_path)
         try:
-            self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 3)
+            self.assertEqual(int(conn.execute("PRAGMA user_version").fetchone()[0]), 4)
         finally:
             conn.close()
         self.assertEqual(

@@ -413,3 +413,82 @@ def get_batch(conn: sqlite3.Connection, batch_id: str) -> sqlite3.Row | None:
     return conn.execute(
         "SELECT * FROM research_batches WHERE batch_id = ?", (batch_id,)
     ).fetchone()
+
+def set_article_classification(
+    conn: sqlite3.Connection,
+    item_id: str,
+    *,
+    employment_topic: str | None = None,
+    employment_status: str | None = None,
+    industry: str | None = None,
+    graduation_cohort: str | None = None,
+    event_year: int | None = None,
+    salary_reported: bool | None = None,
+    experience_type: str | None = None,
+) -> None:
+    """写入就业生态分类字段；枚举非法时拒绝。"""
+    if employment_topic is not None and employment_topic not in db.EMPLOYMENT_TOPICS:
+        raise ValueError(f"不支持的 employment_topic：{employment_topic}")
+    if employment_status is not None and employment_status not in db.EMPLOYMENT_STATUSES:
+        raise ValueError(f"不支持的 employment_status：{employment_status}")
+    if experience_type is not None and experience_type not in db.EXPERIENCE_TYPES:
+        raise ValueError(f"不支持的 experience_type：{experience_type}")
+    if graduation_cohort is not None and graduation_cohort not in {"2026", "2027", "other", "unknown"}:
+        raise ValueError(f"不支持的 graduation_cohort：{graduation_cohort}")
+    if event_year is not None and not (2000 <= int(event_year) <= 2100):
+        raise ValueError("event_year 必须在 2000–2100")
+    with conn:
+        cursor = conn.execute(
+            "UPDATE research_items SET employment_topic = COALESCE(?, employment_topic), "
+            "employment_status = COALESCE(?, employment_status), industry = COALESCE(?, industry), "
+            "graduation_cohort = COALESCE(?, graduation_cohort), event_year = COALESCE(?, event_year), "
+            "salary_reported = COALESCE(?, salary_reported), experience_type = COALESCE(?, experience_type), "
+            "updated_at = ? WHERE item_id = ?",
+            (
+                employment_topic, employment_status, industry, graduation_cohort,
+                event_year, 1 if salary_reported is True else (0 if salary_reported is False else None),
+                experience_type, db.utc_now(), item_id,
+            ),
+        )
+        if cursor.rowcount == 0:
+            raise KeyError(f"研究条目不存在：{item_id}")
+
+
+def record_search_query(
+    conn: sqlite3.Connection,
+    *,
+    query_id: str,
+    platform: str,
+    dimension: str,
+    keyword: str,
+    raw_count: int,
+    unique_count: int,
+    new_count: int,
+    duplicate_count: int,
+    batch_id: str | None = None,
+) -> None:
+    with conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO research_search_queries (query_id, batch_id, platform, "
+            "dimension, keyword, raw_count, unique_count, new_count, duplicate_count, executed_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (query_id, batch_id, platform, dimension, keyword, raw_count, unique_count,
+             new_count, duplicate_count, db.utc_now()),
+        )
+
+
+def add_keyword_candidate(
+    conn: sqlite3.Connection,
+    *,
+    keyword: str,
+    dimension: str,
+    source_batch: str | None = None,
+    notes: str | None = None,
+    status: str = "candidate",
+) -> None:
+    with conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO research_keyword_candidates "
+            "(keyword, dimension, source_batch, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (keyword, dimension, source_batch, status, notes, db.utc_now()),
+        )

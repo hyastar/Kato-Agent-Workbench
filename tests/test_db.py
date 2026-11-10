@@ -35,7 +35,7 @@ class DatabaseTestCase(unittest.TestCase):
             )
         }
         self.assertTrue(set(db.REQUIRED_TABLES) <= tables)
-        self.assertEqual(int(self.conn.execute("PRAGMA user_version").fetchone()[0]), 3)
+        self.assertEqual(int(self.conn.execute("PRAGMA user_version").fetchone()[0]), 4)
         self.assertEqual(self.conn.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
     def test_migrations_are_idempotent_and_keep_data(self) -> None:
@@ -50,7 +50,7 @@ class DatabaseTestCase(unittest.TestCase):
 
         again = db.apply_migrations(self.conn)
         self.assertEqual(again.applied, ())
-        self.assertEqual(again.to_version, 3)
+        self.assertEqual(again.to_version, 4)
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM datasets").fetchone()[0], 1)
         self.assertIsNotNone(db.get_dataset(self.conn, dataset_id))
 
