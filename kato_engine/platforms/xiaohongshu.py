@@ -41,6 +41,8 @@ _LOGGER = get_logger("kato.xhs")
 CARD_SELECTOR = "section.note-item"
 TITLE_LINK_SELECTOR = "a.title"
 COMMENT_TOTAL_RE = re.compile(r"(\d+)\s*条评论")
+# 实测：评论展开过程中可能被重定向到登录/风控错误页，必须停止而不是绕过。
+LOGIN_ERROR_MARKERS = ("/website-login", "/login", "error_code=")
 DATE_TOKEN_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2}(?:\s+\d{1,2}:\d{2})?"
     r"|\d{1,2}-\d{1,2}(?:\s+\d{1,2}:\d{2})?"
@@ -76,60 +78,49 @@ _SEARCH_EXTRACT = """
 
 _COMMENTS_EXTRACT = """
 (root) => {
-  const parseItem = (el, level) => {
-    if (!el) return null;
+  const scope = root || document;
+  const text = (el) => (el && el.innerText ? el.innerText.trim() : '');
+  const parseOne = (el) => {
     const id = (el.id || '').replace(/^comment-/, '') || null;
-    const contentEl = el.querySelector(':scope > .content, :scope .content');
-    const likeEl = el.querySelector(':scope > .interactions .like .count, :scope .like .count');
-    const dateEl = el.querySelector(':scope > .info .date, :scope .date');
-    const replyCountEl = el.querySelector(':scope .reply .count, :scope .count');
-    const content = (contentEl?.innerText || '').trim();
-    if (!content && !id) return null;
-    const node = {
+    const contentEl = el.querySelector('.content');
+    const likeEl = el.querySelector('.interactions .like .count') || el.querySelector('.like .count');
+    const dateEl = el.querySelector('.info .date') || el.querySelector('.date');
+    return {
       id,
-      content: content.slice(0, 4000),
-      like_text: (likeEl?.innerText || '').trim().slice(0, 20),
-      date_text: (dateEl?.innerText || '').trim().slice(0, 40),
-      reply_text: (replyCountEl?.innerText || '').trim().slice(0, 20),
-      level,
+      content: text(contentEl).slice(0, 4000),
+      like_text: text(likeEl).slice(0, 20),
+      date_text: text(dateEl).slice(0, 40),
       children: [],
     };
-    // 楼中楼：reply-container 内可继续嵌套
-    const containers = el.querySelectorAll(':scope > .reply-container, :scope .reply-container');
-    const seen = new Set();
-    containers.forEach(container => {
-      const nested = container.querySelectorAll(':scope > .comment-item');
-      nested.forEach(child => {
-        if (seen.has(child)) return;
-        seen.add(child);
-        const parsed = parseItem(child, level + 1);
-        if (parsed) node.children.push(parsed);
-      });
-    });
-    return node;
   };
 
-  const scope = root || document;
   const parents = Array.from(scope.querySelectorAll('.parent-comment'));
-  const items = [];
-  if (parents.length) {
-    parents.forEach(parent => {
-      const own = parent.querySelector(':scope > .comment-item');
-      const parsed = parseItem(own, 1);
-      if (!parsed) return;
-      // 保证 reply-container 里未被 parseItem 覆盖的层级也被采集
-      const replies = Array.from(parent.querySelectorAll(':scope > .reply-container .comment-item'));
-      const known = new Set(parsed.children.map(c => c.id));
-      replies.forEach(reply => {
-        const id = (reply.id || '').replace(/^comment-/, '');
-        if (id && known.has(id)) return;
-        const extra = parseItem(reply, 2);
-        if (extra) parsed.children.push(extra);
-      });
-      items.push(parsed);
+  const roots = [];
+  parents.forEach(parent => {
+    const items = Array.from(parent.querySelectorAll('.comment-item'));
+    if (!items.length) return;
+    // 一级评论 = 不在 reply-container 内的第一条
+    const rootEl = items.find(el => !el.closest('.reply-container')) || items[0];
+    const rootNode = parseOne(rootEl);
+    if (!rootNode.content && !rootNode.id) return;
+    const byEl = new Map([[rootEl, rootNode]]);
+    items.forEach(el => {
+      if (el === rootEl) return;
+      const node = parseOne(el);
+      if (!node.content && !node.id) return;
+      // 找最近的、本身也是评论的祖先；否则挂到一级评论下
+      let ancestor = el.parentElement;
+      let host = rootNode;
+      while (ancestor && ancestor !== parent) {
+        if (byEl.has(ancestor)) { host = byEl.get(ancestor); break; }
+        ancestor = ancestor.parentElement;
+      }
+      host.children.push(node);
+      byEl.set(el, node);
     });
-  }
-  return items;
+    roots.push(rootNode);
+  });
+  return roots;
 }
 """
 
@@ -378,22 +369,10 @@ class XiaohongshuAdapter:
                 notes=[f"评论区未加载：{type(exc).__name__}"],
             )
 
-        # 滚动评论区并展开楼中楼
-        rounds = 0
+        # 第一阶段：只滚动加载更多一级评论（点击展开最容易触发风控）。
         prev_count = -1
         stable = 0
-        while rounds < 12:
-            rounds += 1
-            for selector in (".show-more", ".comment-item .reply .show-more"):
-                buttons = page.locator(selector)
-                for index in range(min(buttons.count(), 8)):
-                    try:
-                        button = buttons.nth(index)
-                        if button.is_visible():
-                            button.click(timeout=2_500)
-                            page.wait_for_timeout(350)
-                    except Exception:  # noqa: BLE001
-                        continue
+        for _ in range(10):
             try:
                 page.evaluate(
                     """() => {
@@ -405,7 +384,8 @@ class XiaohongshuAdapter:
                 )
             except Exception:  # noqa: BLE001
                 pass
-            page.wait_for_timeout(700)
+            page.wait_for_timeout(900)
+            self._raise_if_blocked(page, context="评论滚动")
             current = page.locator(".comment-item").count()
             if current == prev_count:
                 stable += 1
@@ -415,6 +395,33 @@ class XiaohongshuAdapter:
                 stable = 0
                 prev_count = current
 
+        # 第二阶段：少量点击"展开回复"，被重定向时回退到已加载内容。
+        for _ in range(3):
+            redirected = False
+            buttons = page.locator(".show-more")
+            for index in range(min(buttons.count(), 3)):
+                try:
+                    button = buttons.nth(index)
+                    if button.is_visible():
+                        button.click(timeout=2_500)
+                        page.wait_for_timeout(900)
+                        if any(marker in (page.url or "") for marker in LOGIN_ERROR_MARKERS):
+                            redirected = True
+                            break
+                except Exception:  # noqa: BLE001
+                    continue
+            if redirected:
+                notes.append("展开楼中楼时被重定向到登录/风控页，回退到已加载评论")
+                try:
+                    page.go_back(wait_until="domcontentloaded", timeout=15_000)
+                    page.wait_for_timeout(1_500)
+                except Exception:  # noqa: BLE001
+                    pass
+                break
+            page.mouse.wheel(0, 1_200)
+            page.wait_for_timeout(700)
+
+        self._raise_if_blocked(page, context="评论区")
         raw_nodes = page.evaluate(_COMMENTS_EXTRACT, None)
         nodes = [self._to_node(item, 1) for item in raw_nodes or []]
         nodes = [node for node in nodes if node is not None]
@@ -460,6 +467,12 @@ class XiaohongshuAdapter:
         )
 
     def _raise_if_blocked(self, page: Page, *, context: str) -> None:
+        url = page.url or ""
+        if any(marker in url for marker in LOGIN_ERROR_MARKERS) and "search_result" not in url:
+            raise AuthRequiredError(
+                f"{context}被重定向到登录/风控页：{strip_query(url)}",
+                detail={"url": strip_query(url)},
+            )
         guards = detect_guards(page)
         if guards:
             self._raise_for_guards(guards, context=context)
