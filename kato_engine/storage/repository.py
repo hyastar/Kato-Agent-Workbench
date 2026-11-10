@@ -331,6 +331,12 @@ class EngineRepository:
                  1 if clear_lease else 0, db.utc_now(), candidate_id),
             )
 
+    def candidate_state(self, candidate_id: str) -> str | None:
+        row = self.conn.execute(
+            "SELECT state FROM engine_candidates WHERE candidate_id = ?", (candidate_id,)
+        ).fetchone()
+        return str(row["state"]) if row else None
+
     def mark_accepted(self, candidate_id: str, item_id: str) -> None:
         self._transition(candidate_id, "accepted", item_id=item_id)
 
@@ -556,6 +562,12 @@ class EngineRepository:
 
     def get_item(self, item_id: str) -> sqlite3.Row | None:
         return legacy.get_article(self.conn, item_id)
+
+    def find_item(self, platform: str, canonical_url: str) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM research_items WHERE platform = ? AND canonical_url = ?",
+            (platform, canonical_url),
+        ).fetchone()
 
     def item_comments(self, item_id: str) -> list[sqlite3.Row]:
         return legacy.list_comments(self.conn, item_id)

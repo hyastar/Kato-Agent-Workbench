@@ -91,6 +91,9 @@ def validate_article(payload: dict[str, Any]) -> dict[str, Any]:
         "company": _optional_text(payload, "company"),
         "city": _optional_text(payload, "city"),
         "published_at": ensure_iso8601(payload.get("published_at"), "published_at"),
+        # V6：重复采集时保留首次采集时间，保证 Markdown 档案稳定；
+        # 未提供时由仓储补当前时间。
+        "collected_at": ensure_iso8601(payload.get("collected_at"), "collected_at"),
         "verification_status": status,
         "verification_url": verification_url,
         "verified_at": verified_at,
