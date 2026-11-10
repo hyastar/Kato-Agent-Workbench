@@ -72,6 +72,16 @@ class StorageTestCase(unittest.TestCase):
         self.repo, _ = EngineRepository.open(self.settings)
         self.addCleanup(self.repo.close)
         self.campaign_id = "employment-test"
+        from scripts.employment import repository as legacy
+
+        legacy.create_campaign(
+            self.repo.conn,
+            self.campaign_id,
+            "测试 Campaign",
+            target_total=1000,
+            target_xiaohongshu=800,
+            target_zhihu=200,
+        )
         self.service = ArticleService(self.repo)
         self.queue_added = self.repo.enqueue_candidates(
             [
@@ -203,6 +213,24 @@ class StorageTestCase(unittest.TestCase):
         assert payload is not None
         self.assertEqual(payload["engine_run_id"], "er_test")
         self.assertEqual(payload["accepted"], 1)
+
+    def test_report_counts_real_rows(self) -> None:
+        from kato_engine.observability.reporting import build_report, render_report_markdown
+
+        self.service.persist(
+            make_collected(), campaign_id=self.campaign_id, candidate_id=self.candidate_id
+        )
+        report = build_report(self.repo, self.settings, self.campaign_id)
+        self.assertEqual(report["articles"]["total"], 1)
+        self.assertEqual(report["articles"]["by_platform"]["xiaohongshu"], 1)
+        self.assertEqual(report["comments"]["total"], 5)
+        self.assertEqual(report["comments"]["top_level"], 2)
+        self.assertEqual(report["comments"]["nested"], 3)
+        self.assertEqual(report["articles"]["by_dimension"]["salary"], 1)
+        self.assertEqual(report["artifacts"]["mismatched_count"], 0)
+        markdown = render_report_markdown(report)
+        self.assertIn("就业情报 V6 采集报告", markdown)
+        self.assertIn("一级评论：2", markdown)
 
 
 if __name__ == "__main__":

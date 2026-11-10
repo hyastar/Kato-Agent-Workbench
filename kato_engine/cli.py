@@ -386,6 +386,38 @@ def cmd_verify_artifacts(args: argparse.Namespace) -> int:
     return 0 if report["missing_count"] == 0 and report["mismatched_count"] == 0 else 2
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from kato_engine.discovery.keyword_planner import load_keyword_library
+    from kato_engine.observability.reporting import build_report, render_report_markdown, write_report
+    from kato_engine.storage.repository import EngineRepository
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    campaign_id = args.campaign or library.campaign
+    repo, _ = EngineRepository.open(settings)
+    try:
+        report = build_report(
+            repo,
+            settings,
+            campaign_id,
+            engine_run_id=args.engine_run,
+            verify=not args.no_verify,
+        )
+    finally:
+        repo.close()
+
+    if args.out:
+        json_path = Path(args.out)
+        markdown_path = json_path.with_suffix(".md")
+        write_report(report, json_path, markdown_path)
+        _print({"ok": True, "json": str(json_path), "markdown": str(markdown_path)})
+    elif args.markdown:
+        sys.stdout.write(render_report_markdown(report) + "\n")
+    else:
+        _print(report)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kato-engine", description=f"Kato Collection Engine V6 {__version__}"
@@ -443,6 +475,14 @@ def build_parser() -> argparse.ArgumentParser:
     verify_cmd = sub.add_parser("verify-artifacts", help="核对 Markdown 档案哈希")
     verify_cmd.add_argument("--campaign")
     verify_cmd.set_defaults(func=cmd_verify_artifacts)
+
+    report_cmd = sub.add_parser("report", help="汇总 Campaign 数据质量与性能")
+    report_cmd.add_argument("--campaign")
+    report_cmd.add_argument("--engine-run", help="只统计某次引擎运行的采纳数")
+    report_cmd.add_argument("--out", help="写出 JSON 与同名 Markdown")
+    report_cmd.add_argument("--markdown", action="store_true", help="直接输出 Markdown")
+    report_cmd.add_argument("--no-verify", action="store_true", help="跳过档案哈希校验")
+    report_cmd.set_defaults(func=cmd_report)
 
     return parser
 
