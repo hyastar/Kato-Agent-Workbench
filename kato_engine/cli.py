@@ -418,6 +418,67 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_classify_backfill(args: argparse.Namespace) -> int:
+    """为历史上未分类的文章补充就业生态分类（只补 NULL，得分不足不改）。"""
+    from kato_engine.collection.classification import classify
+    from kato_engine.discovery.keyword_planner import load_keyword_library
+    from kato_engine.storage.repository import EngineRepository
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    campaign_id = args.campaign or library.campaign
+    repo, _ = EngineRepository.open(settings)
+    summary: dict[str, Any] = {"campaign_id": campaign_id, "dry_run": args.dry_run}
+    try:
+        rows = repo.conn.execute(
+            "SELECT item_id, platform, title, summary, employment_topic FROM research_items "
+            "WHERE campaign_id = ? AND employment_topic IS NULL",
+            (campaign_id,),
+        ).fetchall()
+        updated = 0
+        skipped = 0
+        details: list[dict[str, Any]] = []
+        for row in rows:
+            result = classify(str(row["title"] or ""), str(row["summary"] or ""))
+            score = max(result.scores.values()) if result.scores else 0
+            if not result.matched_topic or score < args.min_score:
+                skipped += 1
+                continue
+            details.append(
+                {
+                    "item_id": row["item_id"],
+                    "topic": result.employment_topic,
+                    "cohort": result.graduation_cohort,
+                    "score": score,
+                }
+            )
+            if not args.dry_run:
+                repo.set_classification(str(row["item_id"]), **result.to_db_fields())
+            updated += 1
+        summary.update(
+            {
+                "candidates": len(rows),
+                "updated": updated,
+                "skipped_low_confidence": skipped,
+                "min_score": args.min_score,
+                "by_topic": _count_by(details, "topic"),
+                "details": details[:40],
+            }
+        )
+    finally:
+        repo.close()
+    _print(summary)
+    return 0
+
+
+def _count_by(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        value = str(row.get(key) or "unknown")
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kato-engine", description=f"Kato Collection Engine V6 {__version__}"
@@ -483,6 +544,12 @@ def build_parser() -> argparse.ArgumentParser:
     report_cmd.add_argument("--markdown", action="store_true", help="直接输出 Markdown")
     report_cmd.add_argument("--no-verify", action="store_true", help="跳过档案哈希校验")
     report_cmd.set_defaults(func=cmd_report)
+
+    backfill_cmd = sub.add_parser("classify-backfill", help="补齐历史文章的就业生态分类")
+    backfill_cmd.add_argument("--campaign")
+    backfill_cmd.add_argument("--min-score", type=int, default=3)
+    backfill_cmd.add_argument("--dry-run", action="store_true")
+    backfill_cmd.set_defaults(func=cmd_classify_backfill)
 
     return parser
 
