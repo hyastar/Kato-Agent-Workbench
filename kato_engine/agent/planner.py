@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from kato_engine.agent.contracts import BatchTarget, BatchTask
+from kato_engine.agent.contracts import BatchTask
 from kato_engine.agent.scripts import search_url
 from kato_engine.discovery.candidate_queue import CandidateQueue
 from kato_engine.discovery.keyword_planner import KeywordPlanner, KeywordLibrary
@@ -34,21 +34,6 @@ class BatchPlan:
             "remaining": self.remaining,
             "queue_candidates": self.queue_candidates,
         }
-
-
-def _note_id(canonical_url: str) -> str | None:
-    path = canonical_url.rstrip("/").rsplit("/", 1)[-1]
-    return path or None
-
-
-def _target_from_row(platform: str, row: Any) -> BatchTarget | None:
-    url = str(row["canonical_url"])
-    note_id = _note_id(url) if platform == "xiaohongshu" else None
-    return BatchTarget(
-        candidate_id=str(row["candidate_id"]),
-        canonical_url=url,
-        note_id=note_id,
-    )
 
 
 def remaining_for(repo, campaign_id: str, target_xhs: int, target_zhihu: int) -> dict[str, int]:
@@ -79,41 +64,17 @@ def plan_batch(
         return BatchPlan(None, f"target_reached:{platform}", remaining, 0)
 
     queue = CandidateQueue(repo)
-    queued = repo.conn.execute(
-        "SELECT candidate_id, canonical_url, combined_query, dimension, keyword, attempts "
-        "FROM engine_candidates WHERE campaign_id = ? AND platform = ? "
-        "AND state IN ('queued', 'retryable_failed') AND attempts < ? "
-        "AND combined_query IS NOT NULL "
-        "ORDER BY discovered_at DESC LIMIT 200",
-        (campaign_id, platform, settings.max_attempts),
+    collected = set(repo.existing_urls(platform))
+    # 已拒绝/已完成的候选也不要再打开：结果页重排会反复返回同一批卡片。
+    terminal = repo.conn.execute(
+        "SELECT canonical_url FROM engine_candidates WHERE campaign_id = ? AND platform = ? "
+        "AND (state IN ('completed', 'rejected') "
+        "OR (state = 'retryable_failed' AND attempts >= 2))",
+        (campaign_id, platform),
     ).fetchall()
+    collected.update(str(row[0]) for row in terminal)
 
-    # 已采集过的 URL 不再重复打开
-    collected = repo.existing_urls(platform)
-    usable = [row for row in queued if str(row["canonical_url"]) not in collected]
-
-    if usable:
-        query = str(usable[0]["combined_query"])
-        same_query = [row for row in usable if str(row["combined_query"]) == query]
-        targets = [
-            target
-            for row in same_query[:size]
-            if (target := _target_from_row(platform, row)) is not None
-        ]
-        task = BatchTask(
-            run_id=run_id,
-            campaign_id=campaign_id,
-            platform=platform,
-            query=query,
-            dimension=str(same_query[0]["dimension"] or "unknown"),
-            keyword=str(same_query[0]["keyword"] or ""),
-            combined_query=query,
-            search_url=search_url(platform, query),
-            size=size,
-            targets=targets,
-        )
-        return BatchPlan(task, None, remaining, len(usable))
-
+    accepted = repo.dimension_article_counts(campaign_id)
     accepted = repo.dimension_article_counts(campaign_id)
     pipeline = queue.dimension_pipeline(campaign_id=campaign_id)
     planner = KeywordPlanner(
@@ -136,6 +97,7 @@ def plan_batch(
         combined_query=plan.combined_query,
         search_url=search_url(platform, plan.combined_query),
         size=size,
+        exclude_urls=sorted(collected)[:800],
     )
     return BatchPlan(task, None, remaining, 0)
 

@@ -224,7 +224,10 @@ class QueueTests(RepositoryTestCase):
     def test_illegal_transition_is_rejected(self) -> None:
         with self.assertRaises(InvalidTransition):
             assert_transition("completed", "queued")
-        self.assertFalse(can_transition("rejected", "processing"))
+        # rejected 不是永久事实：结果页重排后同一 URL 可能在后续批次重新遇到，
+        # 未达重试上限时允许复活。
+        self.assertTrue(can_transition("rejected", "processing"))
+        self.assertFalse(can_transition("completed", "processing"))
 
     def test_requeue_blocked_after_human_fix(self) -> None:
         self._add(["https://www.xiaohongshu.com/explore/65f0a1b2c3d4e5f60718293a"])

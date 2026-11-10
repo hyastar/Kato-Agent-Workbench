@@ -104,6 +104,9 @@ def cmd_next_batch(args: argparse.Namespace) -> int:
             return 2
         campaign_id = str(run["campaign_id"])
         target_xhs, target_zhihu = _engine_targets(repo, args.run)
+        reset = repo.reset_processing(campaign_id)
+        if reset:
+            _LOGGER.warning("回收上一批遗留的 processing 候选 %s 条", reset)
         plan: BatchPlan = plan_batch(
             repo,
             library,

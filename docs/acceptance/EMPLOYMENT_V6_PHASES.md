@@ -128,3 +128,30 @@
 5. `search_limit` 误挂在 Settings 上 → 改为从 `EngineOptions` 读取。
 
 
+
+
+---
+
+## V6.1：ZCode 内置浏览器执行层（2026-11-10）
+
+架构决策：浏览器执行后端统一为 ZCode 内置 Browser Use；Python 不再启动 Chrome、不管理窗口焦点。
+
+| 验收项 | 结果 |
+|---|---|
+| 旧执行层删除 | manager/session/focus/navigation/interaction/platforms/core.engine 全部移除；移除 playwright 依赖 |
+| 契约 | `next-batch` 产出 task.json（查询/URL/脚本/排除列表），`submit-batch` 消费 batch.json |
+| 契约测试 | 13 个离线用例（含幂等、平台不一致、token 剥离、blocked），全套 151 passed |
+| 真实采集 | 内置浏览器执行 `workflow_js`：搜索→点击卡片→滚动→展开→提取→返回结构化结果 |
+| 入库 | 文章/评论/分类/Markdown/候选状态由 Python 完成；重复提交不重复入库 |
+| 登录 | 小红书登录态由 ZCode 浏览器面板持有；出现登录墙时返回 blocked 并停止该批 |
+| 历史数据 | 128 篇（小红书 80→128 为 V6.1 新增 48 篇）、评论 3042 条；346 个 Markdown 产物哈希全部一致 |
+
+### V6.1 期间修复的真实问题
+
+1. 队列优先会反复打开已采集卡片 → 改为"每批用新关键词搜索 + 排除已采集/已拒绝 URL"。
+2. `tab.playwright.evaluate` 对裸箭头函数返回函数对象 → 页面脚本必须写成 IIFE。
+3. 结果页 `/search_result/<id>?token` 可能在跳转完成前被判定失败 → 轮询等待 `/explore/`。
+4. 死链/已删除笔记返回 `/404` → 快速识别为不可用并换下一张卡片，不再空转 6 秒。
+5. 搜索结果重复卡片导致同批重复打开 → 候选池按 canonical URL 去重。
+6. `rejected` 不是永久事实 → 状态机允许未达重试上限时复活，避免结果页轮换后永久失效。
+7. 单编排者假设下遗留 `processing` → `next-batch` 自动回收。

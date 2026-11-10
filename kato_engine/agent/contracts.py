@@ -50,6 +50,7 @@ class BatchTask:
     search_url: str
     size: int
     targets: list[BatchTarget] = field(default_factory=list)
+    exclude_urls: list[str] = field(default_factory=list)
     task_path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -64,6 +65,7 @@ class BatchTask:
             "search_url": self.search_url,
             "size": self.size,
             "targets": [target.to_dict() for target in self.targets],
+            "exclude_urls": self.exclude_urls,
             "scripts": task_scripts(self.platform),
             "selectors": task_selectors(self.platform),
             "workflow_js": WORKFLOW_JS,
@@ -83,6 +85,7 @@ class BatchTask:
 @dataclass
 class ArticleExtraction:
     ok: bool
+    candidate_id: str | None = None
     canonical_url: str | None = None
     title: str = ""
     body: str = ""
@@ -120,6 +123,7 @@ class ArticleExtraction:
             displayed_total = None
         return cls(
             ok=ok,
+            candidate_id=(str(payload.get("candidate_id")) if payload.get("candidate_id") else None),
             canonical_url=canonical,
             title=title,
             body=str(payload.get("body") or ""),

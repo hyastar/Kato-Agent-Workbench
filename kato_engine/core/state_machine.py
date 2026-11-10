@@ -31,7 +31,9 @@ TRANSITIONS: Final[dict[str, frozenset[str]]] = {
     "accepted": frozenset({"completed", "blocked"}),
     "retryable_failed": frozenset({"queued", "processing", "rejected"}),
     "blocked": frozenset({"queued", "processing", "rejected"}),
-    "rejected": frozenset(),
+    # rejected 表示"本批放弃"，不是永久事实：结果页重排等临时原因
+    # 会在后续批次重新遇到同一 URL，允许在未达重试上限时复活。
+    "rejected": frozenset({"queued", "processing"}),
     "completed": frozenset(),
     "skipped": frozenset(),
 }

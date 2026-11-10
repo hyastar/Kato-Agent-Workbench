@@ -26,16 +26,22 @@ XHS_SEARCH_JS = r"""
     cards: cards.slice(0, 60).map((c, i) => {
       const a = c.querySelector('a.title');
       const id = c.getAttribute('data-note-id') || '';
+      const anyLink = c.querySelector('a[href*="/search_result/"], a[href*="/explore/"]');
+      const href = (a && a.getAttribute('href')) || (anyLink && anyLink.getAttribute('href')) || '';
       return {
         index: i,
         note_id: id,
         title: (a ? a.innerText : '').trim().slice(0, 120),
-        href: a ? (a.getAttribute('href') || '') : '',
+        href,
         canonical_url: id ? ('https://www.xiaohongshu.com/explore/' + id) : '',
       };
     }).filter(c => c.note_id),
   };
 })()
+"""
+
+XHS_COUNT_JS = r"""
+(() => document.querySelectorAll('.comment-item').length)
 """
 
 XHS_SCROLL_JS = r"""
@@ -139,6 +145,10 @@ ZHIHU_SEARCH_JS = r"""
 })()
 """
 
+ZHIHU_COUNT_JS = r"""
+(() => document.querySelectorAll('.CommentContent').length)
+"""
+
 ZHIHU_SCROLL_JS = r"""
 (() => {
   window.scrollBy(0, Math.max(window.innerHeight, 800));
@@ -204,58 +214,112 @@ ZHIHU_EXTRACT_JS = r"""
 # ---------------------------------------------------------------------------
 
 WORKFLOW_JS = r"""
-async ({ tab, task }) => {
+async ({ tab, task, browser }) => {
   const wait = (ms) => tab.playwright.waitForTimeout(ms);
   const out = { platform: task.platform, query: task.query, search: null, articles: [], notes: [] };
+  const isDetailUrl = (value) => (task.platform === 'zhihu'
+    ? /\/(answer|question|p)\//.test(value)
+    : /\/explore\//.test(value));
+  const SEARCH_URL = task.search_url || "";
 
-  if (task.search_url) {
-    await tab.goto(task.search_url);
+  if (SEARCH_URL) {
+    await tab.goto(SEARCH_URL);
     await tab.playwright.waitForLoadState({ state: 'domcontentloaded' });
     await wait(2500);
     out.search = await tab.playwright.evaluate(task.scripts.search);
   }
-
   if (out.search && out.search.loginWall) {
     out.blocked = { kind: 'login_required', stage: 'search' };
     return out;
   }
 
   const cards = (out.search && out.search.cards) || [];
-  const byId = new Map(cards.map((c) => [String(c.note_id || c.canonical_url), c]));
-  let targets = (task.targets || []).map((t) => ({
-    ...t,
-    card: byId.get(String(t.note_id || t.canonical_url)) || null,
-  }));
-  if (!targets.length) {
-    targets = cards.slice(0, task.size).map((c) => ({
-      note_id: c.note_id || null,
-      canonical_url: c.canonical_url || null,
-      card: c,
-    }));
+  const excluded = new Set((task.exclude_urls || []).map((u) => String(u)));
+  const isExcluded = (c) => excluded.has(String(c && c.canonical_url ? c.canonical_url : ""));
+  // 按搜索结果顺序组成候选池；跳过已采集 URL 与重复卡片，最多准备 size*3 个。
+  const seen = new Set();
+  const pool = [];
+  for (const c of cards) {
+    const key = String(c.canonical_url || c.note_id || "");
+    if (!key || seen.has(key) || isExcluded(c)) continue;
+    seen.add(key);
+    pool.push(c);
+    if (pool.length >= Math.max(task.size * 3, task.size)) break;
   }
 
-  for (const t of targets) {
-    const entry = { note_id: t.note_id || null, canonical_url: t.canonical_url || null, ok: false };
+  const backToSearch = async () => {
+    if (!SEARCH_URL) return;
     try {
-      const href = t.card && t.card.href ? String(t.card.href) : '';
+      const url = String(await tab.playwright.evaluate("(() => location.href)()"));
+      if (url.indexOf('search_result') === -1 && url.indexOf('/search') === -1) {
+        await tab.goto(SEARCH_URL);
+        await tab.playwright.waitForLoadState({ state: 'domcontentloaded' });
+        await wait(1800);
+      }
+    } catch (e) {}
+  };
+
+  const openXiaohongshu = async (t) => {
+    const href = t.href ? String(t.href) : '';
+    if (t.note_id) {
+      for (const sel of ['a.title', 'a.cover', 'a']) {
+        const loc = tab.playwright.locator('section.note-item[data-note-id="' + t.note_id + '"] ' + sel);
+        if ((await loc.count()) === 0) continue;
+        const beforeIds = browser ? (await browser.tabs.list()).map((x) => x.id) : [];
+        try {
+          await loc.nth(0).click({ timeout: 6000 });
+        } catch (e) {
+          continue;
+        }
+        await wait(1500);
+        const nowUrl = String(await tab.playwright.evaluate("(() => location.href)()"));
+        if (/\/explore\//.test(nowUrl)) return tab;
+        if (browser) {
+          const after = await browser.tabs.list();
+          const fresh = after.find((x) => !beforeIds.includes(x.id) && /\/explore\//.test(x.url));
+          if (fresh) return await browser.tabs.get(fresh.id);
+        }
+        return tab;
+      }
+    }
+    if (href) {
+      await tab.goto(href.startsWith('http') ? href : 'https://www.xiaohongshu.com' + href);
+      return tab;
+    }
+    throw new Error('card_missing');
+  };
+
+  let okCount = 0;
+  while (pool.length && okCount < task.size) {
+    const card = pool.shift();
+    const t = {
+      note_id: card.note_id || null,
+      canonical_url: card.canonical_url || null,
+      href: card.href || '',
+    };
+    const entry = { candidate_id: null, note_id: t.note_id, canonical_url: t.canonical_url, ok: false };
+    let workTab = tab;
+    try {
       if (task.platform === 'zhihu') {
-        const target = t.canonical_url || href;
+        const target = t.canonical_url || t.href;
         if (!target) throw new Error('missing_target_url');
         await tab.goto(target.startsWith('http') ? target : 'https://www.zhihu.com' + target);
-      } else if (href) {
-        await tab.goto(href.startsWith('http') ? href : 'https://www.xiaohongshu.com' + href);
-      } else if (t.note_id) {
-        const loc = tab.playwright.locator('section.note-item[data-note-id="' + t.note_id + '"] a.title');
-        if ((await loc.count()) === 0) throw new Error('card_missing');
-        await loc.nth(0).click({ timeout: 8000 });
       } else {
-        throw new Error('missing_target_url');
+        workTab = await openXiaohongshu(t);
       }
 
-      await tab.playwright.waitForLoadState({ state: 'domcontentloaded' }).catch(() => {});
-      await wait(1800);
+      await workTab.playwright.waitForLoadState({ state: 'domcontentloaded' }).catch(() => {});
+      await wait(1200);
 
-      const url = await tab.playwright.evaluate("() => location.href.split('?')[0]");
+      let url = '';
+      for (let i = 0; i < 8; i += 1) {
+        url = String(await workTab.playwright.evaluate("(() => location.href.split('?')[0])()"));
+        if (/website-login|\/login/.test(url)) break;
+        if (/\/404/.test(url)) break;
+        if (isDetailUrl(url)) break;
+        await wait(700);
+      }
+      entry.url = url;
       if (/website-login|\/login/.test(url)) {
         entry.error_type = 'login_required';
         entry.message = 'redirected_to_login';
@@ -263,29 +327,53 @@ async ({ tab, task }) => {
         out.blocked = { kind: 'login_required', stage: 'detail' };
         break;
       }
+      if (!isDetailUrl(url)) {
+        throw new Error(/\/404/.test(url) ? 'note_unavailable' : 'detail_not_opened');
+      }
 
       if (task.scripts.scroll) {
+        let previous = -1;
+        let stable = 0;
         for (let r = 0; r < 8; r += 1) {
-          await tab.playwright.evaluate(task.scripts.scroll);
-          await wait(700);
+          const before = task.scripts.count
+            ? Number(await workTab.playwright.evaluate(task.scripts.count))
+            : 0;
+          await workTab.playwright.evaluate(task.scripts.scroll);
+          await wait(600);
+          const after = task.scripts.count
+            ? Number(await workTab.playwright.evaluate(task.scripts.count))
+            : 0;
+          if (after === before && after === previous) {
+            stable += 1;
+            if (stable >= 2) break;
+          } else {
+            stable = 0;
+          }
+          previous = after;
         }
       }
       if (task.selectors && task.selectors.expand) {
-        const buttons = tab.playwright.locator(task.selectors.expand);
+        const buttons = workTab.playwright.locator(task.selectors.expand);
         const count = Math.min(await buttons.count(), 3);
         for (let i = 0; i < count; i += 1) {
           try { await buttons.nth(i).click({ timeout: 2500 }); await wait(800); } catch (e) {}
         }
       }
 
-      const data = await tab.playwright.evaluate(task.scripts.extract);
+      const data = await workTab.playwright.evaluate(task.scripts.extract);
       out.articles.push({ ...entry, ...data, ok: true });
+      okCount += 1;
     } catch (err) {
       if (!entry.error_type) {
         entry.error_type = 'selector_error';
         entry.message = String((err && err.message) || err).slice(0, 200);
       }
       out.articles.push(entry);
+      if (workTab === tab) await backToSearch();
+    } finally {
+      if (workTab !== tab) {
+        try { await workTab.close(); } catch (e) {}
+      }
     }
   }
   return out;
@@ -297,6 +385,7 @@ PLATFORM_SCRIPTS: dict[str, dict[str, str]] = {
     "xiaohongshu": {
         "search": XHS_SEARCH_JS,
         "scroll": XHS_SCROLL_JS,
+        "count": XHS_COUNT_JS,
         "extract": XHS_EXTRACT_JS,
         "expand": ".show-more",
         "search_url_template": (
@@ -306,6 +395,7 @@ PLATFORM_SCRIPTS: dict[str, dict[str, str]] = {
     "zhihu": {
         "search": ZHIHU_SEARCH_JS,
         "scroll": ZHIHU_SCROLL_JS,
+        "count": ZHIHU_COUNT_JS,
         "extract": ZHIHU_EXTRACT_JS,
         "expand": "button:has-text('展开')",
         "search_url_template": "https://www.zhihu.com/search?type=content&q={query}",
@@ -324,6 +414,7 @@ def task_scripts(platform: str) -> dict[str, str]:
     return {
         "search": entry["search"],
         "scroll": entry["scroll"],
+        "count": entry["count"],
         "extract": entry["extract"],
     }
 

@@ -354,6 +354,19 @@ class EngineRepository:
             return None
         state = str(row["state"])
         attempts = int(row["attempts"])
+        if state == "rejected":
+            if attempts_max is None or attempts < attempts_max:
+                assert_transition(state, "processing")
+                lease_owner = owner or f"{socket.gethostname()}:{os.getpid()}"
+                with self.conn:
+                    self.conn.execute(
+                        "UPDATE engine_candidates SET state = 'processing', attempts = attempts + 1, "
+                        "lease_owner = ?, lease_until = ?, updated_at = ? WHERE candidate_id = ?",
+                        (lease_owner, iso_after(self.settings.lease_seconds), db.utc_now(), candidate_id),
+                    )
+                return "processing"
+            return "rejected"
+
         if state in {"queued", "retryable_failed"}:
             if attempts_max is not None and attempts >= attempts_max:
                 self._transition(
@@ -421,6 +434,25 @@ class EngineRepository:
                     (now, row["candidate_id"]),
                 )
         return len(rows)
+
+    def reset_processing(self, campaign_id: str, platform: str | None = None) -> int:
+        """把仍停在 processing 的候选退回 queued。
+
+        单编排者假设：同一时刻只有一个 ZCode 批次在跑，因此进入下一批时
+        遗留的 processing 一定是上一批中断（页面失败/会话中断）留下的。
+        """
+        clauses = ["campaign_id = ?", "state = 'processing'"]
+        params: list[Any] = [campaign_id]
+        if platform:
+            clauses.append("platform = ?")
+            params.append(platform)
+        with self.conn:
+            cursor = self.conn.execute(
+                f"UPDATE engine_candidates SET state = 'queued', lease_owner = NULL, "
+                f"lease_until = NULL, updated_at = ? WHERE {' AND '.join(clauses)}",
+                (db.utc_now(), *params),
+            )
+        return int(cursor.rowcount or 0)
 
     def requeue_blocked(self, platform: str, *, campaign_id: str) -> int:
         """用户完成人工验证后，把 blocked 候选放回队列。"""

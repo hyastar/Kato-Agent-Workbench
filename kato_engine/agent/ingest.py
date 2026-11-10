@@ -143,22 +143,38 @@ def ingest_batch(
         candidate_id: str | None = None
         try:
             if not extraction.ok or not extraction.canonical_url:
-                item.update(
-                    {
-                        "error_type": extraction.error_type or "extraction_failed",
-                        "message": extraction.message,
-                    }
-                )
+                error_type = extraction.error_type or "extraction_failed"
+                item.update({"error_type": error_type, "message": extraction.message})
                 summary.failed += 1
-                if extraction.error_type == "login_required":
+                if error_type == "login_required":
                     summary.blocked = True
+                failed_id = extraction.candidate_id
+                if failed_id is None and extraction.canonical_url:
+                    failed_id = candidate_id_for(result.platform, extraction.canonical_url)
+                if failed_id:
+                    state = repo.claim_candidate(
+                        failed_id, attempts_max=repo.settings.max_attempts
+                    )
+                    if state == "processing":
+                        if error_type == "login_required":
+                            repo.mark_blocked(
+                                failed_id,
+                                error_type="login_required",
+                                reason=extraction.message or "需要登录",
+                            )
+                        else:
+                            repo.mark_retryable(
+                                failed_id,
+                                error_type=error_type,
+                                reason=(extraction.message or "")[:300],
+                            )
                 summary.items.append(item)
                 continue
 
             candidate_id = candidate_id_for(result.platform, extraction.canonical_url)
             state = repo.claim_candidate(candidate_id, attempts_max=repo.settings.max_attempts)
-            if state == "completed":
-                item.update({"skipped": "already_completed"})
+            if state != "processing":
+                item.update({"skipped": f"candidate_state={state}"})
                 summary.items.append(item)
                 continue
 
