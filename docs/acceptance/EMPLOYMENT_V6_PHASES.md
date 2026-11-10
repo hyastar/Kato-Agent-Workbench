@@ -59,3 +59,72 @@
 - `integrity_check=ok`，`foreign_key_check` 0 条，`user_version=5`
 - 新增表：`engine_candidates`、`engine_query_runs`、`engine_runs`、`engine_metrics`；`research_artifacts` 增加 `bytes`/`updated_at`
 
+---
+
+## 阶段 4：平台适配器（真实页面，2026-11-10）
+
+| 验收项 | 小红书 | 知乎 |
+|---|---|---|
+| 搜索解析 | 22 张卡片 → 3 条可用候选（`data-note-id`） | 19 条结果 → 3 条答案链接 |
+| 详情进入 | 点击 `a.title`，URL 自动带 token，入库去 token | 点击结果，兼容新标签页 |
+| 正文 | `.note-content .desc` 746 字 | `.QuestionRichText` / `.RichText` |
+| 页面评论总数 | `共 54 条评论` | 回答操作区 `N 条评论` |
+| 一级评论 | 36 条（全部） | 30 条（>50 规则截断前） |
+| 楼中楼 | 18 条，多层 | 18 条，按缩进 207/241px 判定父子 |
+| 分类 | salary / 2026 / 互联网 | salary / campus 命中 |
+
+- 采集时间清洗：小红书 `05-24河北` → `05-24`；知乎 `发布于2025-09-11 15:14・湖北` → `2025-09-11 15:14`，**不保存位置**。
+- 未做全局文本去重；知乎评论无稳定 ID，父子关系由缩进恢复。
+- 新增 18 个离线用例；全套 160 passed。
+
+---
+
+## 阶段 5：存储与生命周期（2026-11-10）
+
+| 验收项 | 结果 |
+|---|---|
+| 历史档案哈希 | 82 个产物（41 篇 × 2）与数据库记录一致 |
+| 幂等入库 | 同文重复入库不新增 item/comment，Markdown 不重写 |
+| 采集时间 | 重复采集保留首次时间，档案可复现 |
+| 评论树 | 一级 50 + 楼中楼 175 正确挂接，父引用完整 |
+| checkpoint | `runs/<engine-run-id>/checkpoint.json` 原子写入 |
+| 新增产物校验 | `verify-artifacts` 90 个产物全部匹配 |
+
+---
+
+## 阶段 6：连续 Campaign Engine（2026-11-10）
+
+| 验收项 | 结果 |
+|---|---|
+| 真实采集 | 搜索 → 详情 → 评论 → 入库 → Markdown 全链路走通 |
+| 单篇耗时 | 小红书 17–35s，知乎 17s |
+| 断点续跑 | 重启后从 `engine_candidates` 继续，`searches=0` 直接复用队列 |
+| 失败分类 | 选择器失败重试 3 次后 `rejected`；未分类异常记 `retryable_failed` |
+| 平台暂停 | 登录/验证码/限流映射为 `blocked` 并停止该平台 |
+| 连续失败保护 | `--max-failures` 达到即停止，避免空转 |
+| 恢复缺陷修复 | 旧候选因结果页重排失效 → 改为"新入队优先 + go_back 复用结果页" |
+
+---
+
+## 阶段 7：端到端验收（2026-11-10）
+
+| 验收项 | 证据 | 结果 |
+|---|---|---|
+| 浏览器启动 | Chrome 156 + 持久 Profile，健康检查通过 | PASS |
+| 关键词加载 | 10 维 / 100 关键词，查询按维度缺口选取 | PASS |
+| 候选发现 | 单次搜索入队 20 条，跨 query 去重 | PASS |
+| 详情与评论 | 真实页面采集，覆盖状态 complete/partial/not_available 均可出现 | PASS |
+| 入库与导出 | SQLite + Markdown + 哈希登记 | PASS |
+| 主动停止 | `max_articles_reached` 正常退出并写 checkpoint | PASS |
+| 中断恢复 | 进程中断后候选状态保留，下一次运行继续 | PASS |
+| 档案校验 | `verify-artifacts` 90/90 匹配 | PASS |
+
+### 阶段 4–7 期间的真实缺陷与修复
+
+1. `page.evaluate` 传入 Locator 导致序列化失败 → 改用 `eval_on_selector_all`。
+2. 搜索结果重排导致队列里的旧卡片点不到 → 新入队优先 + 结果页懒加载滚动 + `go_back` 复用。
+3. 小红书详情有时在新标签页打开 → 检测新页并切换。
+4. 分类维度名与数据库枚举不一致（`it`/`worklife` vs `computer`/`work_life`）→ 对齐。
+5. `search_limit` 误挂在 Settings 上 → 改为从 `EngineOptions` 读取。
+
+
