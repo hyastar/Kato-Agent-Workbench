@@ -55,6 +55,7 @@
 
 - 动作片段：`scripts/employment/browser/actions.py` 的 `XHS_EXPAND_AND_PARSE`。
 - 前提：先从搜索结果真实点击进入笔记（URL 自动带 `xsec_token`）。
+- 定位（2026-11-10 实测）：每张卡片含一个隐藏的 `<a href="/explore/<id>">`，排在最前；通用 `a[href*="<id>"]` 会点中隐藏链接而无效。应点击 `a.title[href*="<id>"]` 或 `a[href*="search_result/<id>"]`（带 `xsec_token`）。
 - 行为：滚动 `.note-scroller`、点击 `.show-more` 展开回复、按 `.parent-comment` 数量做稳定检测（连续 3 轮不增长即停）、最后一次追加展开后解析。
 - 层级：`reply-container` 内的回复递归解析，不限定只有第二层；父子关系按 DOM 容器恢复，不以文本全局去重。
 - 解析字段：`.comment-item` 的 `id`（去掉 `comment-`）、`.content`、`.interactions .like .count`、`.info .date`、`.reply-container .comment-item`。
