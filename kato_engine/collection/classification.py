@@ -40,7 +40,7 @@ DIMENSION_KEYWORDS: dict[str, tuple[str, ...]] = {
         "机械", "制造业", "自动化", "工艺", "设备", "模具", "材料", "焊接", "数控",
         "工程机械", "机电",
     ),
-    "it": (
+    "computer": (
         "计算机", "互联网", "程序员", "开发", "算法", "前端", "后端", "测试", "运维",
         "产品经理", "大厂", "ai", "人工智能", "码农", "it行业", "软件",
     ),
@@ -48,7 +48,7 @@ DIMENSION_KEYWORDS: dict[str, tuple[str, ...]] = {
         "秋招", "春招", "校招", "补录", "提前批", "宣讲会", "双选会", "应届", "毕业季",
         "offer", "三方", "签约", "海投",
     ),
-    "worklife": (
+    "work_life": (
         "加班", "996", "007", "单休", "双休", "房租", "通勤", "生活成本", "内卷",
         "大小周", "工时", "加班费", "租房",
     ),
@@ -63,9 +63,9 @@ LEGACY_TOPIC: dict[str, str] = {
     "home_idle": "experience",
     "factory": "experience",
     "machinery": "experience",
-    "it": "industry",
+    "computer": "industry",
     "campus": "recruitment",
-    "worklife": "experience",
+    "work_life": "experience",
 }
 
 STAGE_KEYWORDS: tuple[tuple[str, str], ...] = (
@@ -119,9 +119,13 @@ SALARY_PREFIX_PATTERN = re.compile(r"(工资|薪资|月薪|到手|年包|收入)
 COHORT_PATTERNS: tuple[tuple[str, str], ...] = (
     ("27届", "2027"),
     ("2027届", "2027"),
+    ("27应届", "2027"),
+    ("27级", "2027"),
     ("2027", "2027"),
     ("26届", "2026"),
     ("2026届", "2026"),
+    ("26应届", "2026"),
+    ("26级", "2026"),
     ("2026", "2026"),
     ("25届", "other"),
     ("2025", "other"),

@@ -42,7 +42,7 @@ class RepositoryTestCase(unittest.TestCase):
         self.queue = CandidateQueue(self.repo)
 
     def _add(self, urls: list[str], *, platform: str = "xiaohongshu", dimension: str = "salary"):
-        hits = [SearchHit(title=f"t{i}", url=url, raw_index=i) for i, url in enumerate(urls)]
+        hits = [SearchHit(title=f"t{i}", canonical_url=url, raw_index=i) for i, url in enumerate(urls)]
         return self.queue.add(
             campaign_id=self.campaign_id,
             platform=platform,

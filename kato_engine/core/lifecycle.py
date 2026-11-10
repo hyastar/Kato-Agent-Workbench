@@ -93,7 +93,12 @@ class ArticleService:
             raise KeyError(f"文章入库后读取失败：{item_id}")
         item = dict(item_row)
         comment_rows = [dict(row) for row in self.repo.item_comments(item_id)]
-        export = export_article(self.settings, item, comment_rows, stats)
+        # 渲染时空值显示为"未记录"，而不是字面的 None。
+        render_stats = {key: value for key, value in stats.items() if value is not None}
+        render_stats["coverage_status"] = stats["coverage_status"]
+        render_stats["collected_top_level"] = stats["collected_top_level"]
+        render_stats["collected_replies"] = stats["collected_replies"]
+        export = export_article(self.settings, item, comment_rows, render_stats)
 
         self.repo.set_markdown_paths(
             item_id, post_path=export.post_path, comments_path=export.comments_path

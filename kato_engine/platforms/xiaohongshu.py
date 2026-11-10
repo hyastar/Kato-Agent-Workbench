@@ -211,40 +211,101 @@ class XiaohongshuAdapter:
         note_id = hit.extra.get("note_id", "")
         if not note_id:
             raise SelectorMissingError("候选缺少 note_id，无法从搜索页点击进入")
-        card = page.locator(f'{CARD_SELECTOR}[data-note-id="{note_id}"]')
-        if card.count() == 0:
+        card = self._locate_card(page, note_id)
+        if card is None:
             raise SelectorMissingError(
-                "搜索页上找不到该笔记卡片，可能已翻页或结果被重排",
+                "搜索页上找不到该笔记卡片（结果可能已重排）",
                 detail={"note_id": note_id},
             )
-        link = card.first.locator(TITLE_LINK_SELECTOR)
-        try:
-            link.scroll_into_view_if_needed(timeout=8_000)
-            link.click(timeout=10_000)
-        except Exception as exc:  # noqa: BLE001
-            raise SelectorMissingError(
-                f"点击笔记入口失败：{type(exc).__name__}", detail={"note_id": note_id}
-            ) from exc
 
-        page.wait_for_timeout(2_500)
-        self._raise_if_blocked(page, context="详情页")
+        clicked = False
+        pages_before = {id(item) for item in page.context.pages}
+        for selector in (TITLE_LINK_SELECTOR, "a.cover", f'a[href*="/search_result/{note_id}"]'):
+            link = card.locator(selector).first
+            if link.count() == 0:
+                continue
+            try:
+                link.scroll_into_view_if_needed(timeout=6_000)
+                link.click(timeout=8_000)
+                clicked = True
+                break
+            except Exception:  # noqa: BLE001 - 换下一个入口再试
+                try:
+                    link.click(timeout=5_000, force=True)
+                    clicked = True
+                    break
+                except Exception:
+                    continue
+        if not clicked:
+            raise SelectorMissingError(
+                "点击笔记入口失败", detail={"note_id": note_id}
+            )
+
+        # 小红书有时在新标签页打开详情：需要切换目标页。
+        target = page
+        page.wait_for_timeout(1_200)
+        new_pages = [item for item in page.context.pages if id(item) not in pages_before]
+        if new_pages:
+            target = new_pages[-1]
+            try:
+                target.wait_for_load_state("domcontentloaded", timeout=20_000)
+            except Exception:  # noqa: BLE001
+                pass
+
+        target.wait_for_timeout(1_500)
+        self._raise_if_blocked(target, context="详情页")
         try:
-            page.wait_for_selector("#detail-title, .note-content", timeout=15_000)
+            target.wait_for_selector("#detail-title, .note-content", timeout=15_000)
         except Exception as exc:  # noqa: BLE001
             raise ContentNotLoadedError(
-                "笔记详情未加载", detail={"note_id": note_id, "url": strip_query(page.url)}
+                "笔记详情未加载",
+                detail={"note_id": note_id, "url": strip_query(target.url)},
             ) from exc
 
-        final_url = strip_query(page.url)
+        final_url = strip_query(target.url)
         if note_id not in final_url:
             raise IrrelevantContentError(
                 f"详情页与候选不匹配：{final_url}", detail={"note_id": note_id}
             )
-        return page, canonical_url(self.name, final_url)
+        return target, canonical_url(self.name, final_url)
+
+    def _locate_card(self, page: Page, note_id: str):
+        """在搜索结果里定位卡片；必要时滚动加载更多结果。"""
+        selector = f'{CARD_SELECTOR}[data-note-id="{note_id}"]'
+        for attempt in range(6):
+            card = page.locator(selector)
+            if card.count() > 0:
+                return card.first
+            if attempt == 0:
+                # 结果可能是懒加载：先滚到底部触发加载
+                try:
+                    page.mouse.wheel(0, 2_000)
+                except Exception:  # noqa: BLE001
+                    pass
+            else:
+                try:
+                    page.evaluate(
+                        """() => {
+                            const el = document.scrollingElement || document.documentElement;
+                            if (el) el.scrollTop = el.scrollHeight;
+                        }"""
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+            page.wait_for_timeout(900)
+        return None
 
     def read_article(self, page: Page) -> ArticleData:
         title = (page.locator("#detail-title").first.inner_text(timeout=5_000) or "").strip()
-        body = (page.locator(".note-content").first.inner_text(timeout=8_000) or "").strip()
+        body = ""
+        for selector in (".note-content .desc", "#detail-desc", ".note-content"):
+            locator = page.locator(selector)
+            if locator.count():
+                body = (locator.first.inner_text(timeout=8_000) or "").strip()
+                if body:
+                    break
+        # 去掉页面推荐位噪声（"猜你想搜" 之后的搜索建议不是正文）
+        body = re.split(r"猜你想搜", body)[0].strip()
         published = None
         for selector in (".bottom-container .date", ".note-content .date", ".publish-date"):
             locator = page.locator(selector)
@@ -277,6 +338,18 @@ class XiaohongshuAdapter:
     def collect_comments(self, page: Page, *, limit: int) -> CommentBundle:
         notes: list[str] = []
         displayed_total = self.displayed_comments_total(page)
+
+        # 评论区可能懒加载：先滚到页面底部触发一次加载。
+        try:
+            page.evaluate(
+                """() => {
+                    const el = document.querySelector('.note-scroller') || document.scrollingElement;
+                    if (el) el.scrollTop = el.scrollHeight;
+                }"""
+            )
+            page.wait_for_timeout(1_200)
+        except Exception:  # noqa: BLE001
+            pass
 
         try:
             page.wait_for_selector(".comment-item", timeout=12_000)

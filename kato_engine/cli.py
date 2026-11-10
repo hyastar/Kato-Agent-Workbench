@@ -205,6 +205,187 @@ def cmd_queue_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dom_probe(args: argparse.Namespace) -> int:
+    """打开一个页面并输出结构摘要（调试选择器用；不保存页面内容到仓库）。"""
+    from kato_engine.browser.navigation import detect_guards, strip_query
+
+    settings = load_settings()
+    payload: dict[str, Any] = {"url": strip_query(args.url), "ok": False}
+    manager = BrowserManager(settings)
+    try:
+        session = manager.start(headless=args.headless)
+        page = session.page()
+        response_status = 0
+        try:
+            response = page.goto(args.url, wait_until="domcontentloaded", timeout=settings.nav_timeout_ms)
+            response_status = response.status if response else 0
+        except Exception as exc:  # noqa: BLE001
+            payload["navigation_error"] = f"{type(exc).__name__}: {exc}"
+        page.wait_for_timeout(args.wait_ms)
+        selectors = [item for item in (args.selectors or "").split(",") if item.strip()]
+        counts = {}
+        for selector in selectors:
+            try:
+                counts[selector] = page.locator(selector).count()
+            except Exception:  # noqa: BLE001
+                counts[selector] = -1
+        anchors: list[str] = []
+        try:
+            hrefs = page.eval_on_selector_all(
+                "a[href]", "els => els.slice(0, 80).map(e => e.getAttribute('href'))"
+            )
+        except Exception:  # noqa: BLE001
+            hrefs = []
+        for href in hrefs or []:
+            if not href:
+                continue
+            absolute = href if str(href).startswith("http") else f"https://{page.url.split('/')[2]}{href}"
+            anchors.append(strip_query(absolute))
+        payload.update(
+            {
+                "ok": True,
+                "status": response_status,
+                "final_url": strip_query(page.url),
+                "title": page.title(),
+                "guards": detect_guards(page),
+                "selector_counts": counts,
+                "anchors": anchors[:40],
+                "body_text_sample": (page.evaluate("() => document.body ? document.body.innerText.slice(0, 300) : ''") or ""),
+            }
+        )
+    except EngineError as exc:
+        payload["error"] = exc.to_dict()
+    finally:
+        manager.stop()
+    _print(payload)
+    return 0 if payload.get("ok") else 2
+
+
+def cmd_campaign_run(args: argparse.Namespace) -> int:
+    """连续采集：从关键词到文章与评论档案，自动推进下一条候选。"""
+    from kato_engine.core.engine import CampaignEngine, EngineOptions
+    from kato_engine.discovery.keyword_planner import load_keyword_library
+    from kato_engine.storage.repository import EngineRepository
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    campaign_id = args.campaign or library.campaign
+    repo, schema = EngineRepository.open(settings)
+    manager = BrowserManager(settings)
+    summary: dict[str, Any] = {"campaign_id": campaign_id, "ok": False}
+    try:
+        campaign = repo.ensure_campaign(campaign_id)
+        current = repo.campaign_article_counts(campaign_id)
+        targets = {
+            "xiaohongshu": current.get("xiaohongshu", 0) + args.add_xhs,
+            "zhihu": current.get("zhihu", 0) + args.add_zhihu,
+        }
+        summary.update(
+            {
+                "schema_version": schema.to_version,
+                "campaign_target_total": int(campaign["target_total"]),
+                "before": current,
+                "targets": targets,
+                "add_xhs": args.add_xhs,
+                "add_zhihu": args.add_zhihu,
+            }
+        )
+        if args.dry_run:
+            summary.update({"ok": True, "dry_run": True})
+            _print(summary)
+            return 0
+
+        manager.start(headless=args.headless)
+        engine = CampaignEngine(settings, repo, manager, library)
+        order = tuple(
+            item.strip() for item in (args.order or "xiaohongshu,zhihu").split(",") if item.strip()
+        )
+        result = engine.run(
+            EngineOptions(
+                campaign_id=campaign_id,
+                targets=targets,
+                max_articles=args.max_articles,
+                max_consecutive_failures=args.max_failures,
+                require_relevance=not args.no_relevance,
+                platform_order=order,
+                on_progress=_progress_printer(),
+            )
+        )
+        after = repo.campaign_article_counts(campaign_id)
+        summary.update(
+            {
+                "ok": result.articles_added > 0 or result.stop_reason == "targets_reached",
+                "result": result.to_dict(),
+                "after": after,
+            }
+        )
+    except EngineError as exc:
+        summary["error"] = exc.to_dict()
+    finally:
+        manager.stop()
+        repo.close()
+    _print(summary)
+    return 0 if summary.get("ok") else 2
+
+
+def _progress_printer():  # noqa: ANN202
+    def _print_progress(payload: dict[str, Any]) -> None:
+        sys.stderr.write(
+            "[采集] {platform} {item_id} 一级={top_level} 楼中楼={replies} 覆盖={coverage} {title}\n".format(
+                **payload
+            )
+        )
+        sys.stderr.flush()
+
+    return _print_progress
+
+
+def cmd_requeue(args: argparse.Namespace) -> int:
+    from kato_engine.discovery.keyword_planner import load_keyword_library
+    from kato_engine.storage.repository import EngineRepository
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    campaign_id = args.campaign or library.campaign
+    repo, _ = EngineRepository.open(settings)
+    try:
+        count = repo.requeue_blocked(args.platform, campaign_id=campaign_id)
+        payload = {
+            "campaign_id": campaign_id,
+            "platform": args.platform,
+            "requeued": count,
+            "queue": repo.candidate_state_counts(campaign_id=campaign_id, platform=args.platform),
+        }
+    finally:
+        repo.close()
+    _print(payload)
+    return 0
+
+
+def cmd_verify_artifacts(args: argparse.Namespace) -> int:
+    from kato_engine.discovery.keyword_planner import load_keyword_library
+    from kato_engine.storage.markdown import verify_artifacts
+    from kato_engine.storage.repository import EngineRepository
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    campaign_id = args.campaign or library.campaign
+    repo, _ = EngineRepository.open(settings)
+    try:
+        report = verify_artifacts(settings, repo)
+        report.update(
+            {
+                "campaign_id": campaign_id,
+                "campaign_articles": repo.campaign_article_counts(campaign_id),
+                "queue": repo.candidate_state_counts(campaign_id=campaign_id),
+            }
+        )
+    finally:
+        repo.close()
+    _print(report)
+    return 0 if report["missing_count"] == 0 and report["mismatched_count"] == 0 else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kato-engine", description=f"Kato Collection Engine V6 {__version__}"
@@ -234,6 +415,34 @@ def build_parser() -> argparse.ArgumentParser:
     stats_cmd.add_argument("--platform", choices=("xiaohongshu", "zhihu"))
     stats_cmd.add_argument("--campaign")
     stats_cmd.set_defaults(func=cmd_queue_stats)
+
+    probe_cmd = sub.add_parser("dom-probe", help="打开页面并输出选择器/链接结构（调试）")
+    probe_cmd.add_argument("--url", required=True)
+    probe_cmd.add_argument("--selectors", default="", help="逗号分隔的选择器列表")
+    probe_cmd.add_argument("--wait-ms", type=int, default=3_000)
+    probe_cmd.add_argument("--headless", action="store_true")
+    probe_cmd.set_defaults(func=cmd_dom_probe)
+
+    run_cmd = sub.add_parser("campaign-run", help="连续采集（真实浏览器）")
+    run_cmd.add_argument("--campaign")
+    run_cmd.add_argument("--add-xhs", type=int, default=0, help="本轮新增小红书篇数")
+    run_cmd.add_argument("--add-zhihu", type=int, default=0, help="本轮新增知乎篇数")
+    run_cmd.add_argument("--max-articles", type=int, default=None, help="本轮最多新增篇数（验收用）")
+    run_cmd.add_argument("--max-failures", type=int, default=15, help="连续失败上限，达到即停止")
+    run_cmd.add_argument("--order", default="xiaohongshu,zhihu")
+    run_cmd.add_argument("--no-relevance", action="store_true", help="关闭相关性过滤（不推荐）")
+    run_cmd.add_argument("--dry-run", action="store_true")
+    run_cmd.add_argument("--headless", action="store_true")
+    run_cmd.set_defaults(func=cmd_campaign_run)
+
+    requeue_cmd = sub.add_parser("requeue", help="人工处理完成后把 blocked 候选放回队列")
+    requeue_cmd.add_argument("--platform", required=True, choices=("xiaohongshu", "zhihu"))
+    requeue_cmd.add_argument("--campaign")
+    requeue_cmd.set_defaults(func=cmd_requeue)
+
+    verify_cmd = sub.add_parser("verify-artifacts", help="核对 Markdown 档案哈希")
+    verify_cmd.add_argument("--campaign")
+    verify_cmd.set_defaults(func=cmd_verify_artifacts)
 
     return parser
 

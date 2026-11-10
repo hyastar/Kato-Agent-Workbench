@@ -278,7 +278,9 @@ class EngineRepository:
             "SELECT * FROM engine_candidates WHERE campaign_id = ? AND platform = ? "
             "AND state IN ('queued', 'retryable_failed') AND attempts < ? "
             "AND (lease_until IS NULL OR lease_until < ?) "
-            "ORDER BY CASE state WHEN 'queued' THEN 0 ELSE 1 END, discovered_at, candidate_id "
+            # 新入队优先：刚搜索到的卡片仍在当前结果页，命中率最高；
+            # 旧候选退回队列后排在后面，避免反复重试过期结果。
+            "ORDER BY CASE state WHEN 'queued' THEN 0 ELSE 1 END, discovered_at DESC, candidate_id "
             "LIMIT 1",
             (campaign_id, platform, max_attempts, now),
         ).fetchone()

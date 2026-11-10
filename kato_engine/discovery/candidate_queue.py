@@ -15,18 +15,10 @@ from typing import Any, Iterable
 from kato_engine.discovery.deduplication import canonical_url
 from kato_engine.discovery.keyword_planner import QueryPlan
 from kato_engine.observability.logging import get_logger
+from kato_engine.platforms.base import SearchHit
 from kato_engine.storage.repository import EnqueueResult, EngineRepository
 
 _LOGGER = get_logger("kato.queue")
-
-
-@dataclass(frozen=True)
-class SearchHit:
-    """搜索结果里的一条候选（只保留任务必需字段）。"""
-
-    title: str
-    url: str
-    raw_index: int = 0
 
 
 def default_lease_owner() -> str:
@@ -56,7 +48,7 @@ class CandidateQueue:
         hits_list = list(hits)
         for hit in hits_list:
             try:
-                url = canonical_url(platform, hit.url)
+                url = canonical_url(platform, hit.canonical_url)
             except ValueError as exc:
                 invalid += 1
                 _LOGGER.debug("跳过无法识别的候选 URL：%s", exc)
