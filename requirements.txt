@@ -1,0 +1,3 @@
+# V6 引擎 Python 依赖
+# 使用本机已安装的 Chrome（channel="chrome"），不需要 playwright install chromium。
+playwright>=1.65,<2

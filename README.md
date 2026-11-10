@@ -121,6 +121,35 @@ Agent 会读取 `AGENTS.md` 与任务文档，做环境检查，生成 `run-id`�
 
 `runs/` 与 `data/` 的内容默认不入 Git，避免把数据与运行日志提交到远程仓库；需要归档时由你明确决定。
 
+## V6 采集引擎
+
+V6 引擎自己拥有 Chrome 会话与任务循环，宿主 Agent 不再逐篇操作浏览器。详细设计见 `docs/v6/V6_ARCHITECTURE.md`，运维步骤见 `docs/v6/V6_OPERATIONS.md`。
+
+```bash
+conda activate Kato-Agent-Workbench
+python -m pip install -r requirements.txt   # 或 pip install playwright
+
+# 1. 浏览器自检（启动真实 Chrome → DOM 提取 → 关闭）
+python -m kato_engine.cli browser-check
+
+# 2. 看关键词调度（不联网）
+python -m kato_engine.cli plan --platform xiaohongshu --limit 3
+python -m kato_engine.cli queue-stats
+
+# 3. 连续采集（真实浏览器；--add-* 表示"本轮新增多少篇"）
+python -m kato_engine.cli campaign-run --add-xhs 160 --add-zhihu 40
+
+# 4. 校验与报告
+python -m kato_engine.cli verify-artifacts
+python -m kato_engine.cli report --markdown
+```
+
+运行约束：
+
+- 持久化 Profile 固定为仓库外的 `.kato-playwright-profile`，同一时间只能有一个 Chrome 使用它；被占用时引擎会直接报 `profile_in_use`，不会改用临时 Profile。
+- 登录、验证码、设备确认由用户在可见 Chrome 中完成；引擎遇到这类页面会把候选标记为 `blocked` 并暂停该平台。
+- 中断后重新执行同一命令即可从 SQLite 里的候选队列继续，不会重复入库。
+
 ## 数据集目录工具
 
 ```bash
