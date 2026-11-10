@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 # 小红书面：在结果页由 Agent 点击卡片后执行。一次完成展开与结构化提取。
+# 回复容器递归解析，支持多层楼中楼；不以文本做全局去重。
 XHS_EXPAND_AND_PARSE = r"""
 async () => {
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -32,7 +33,8 @@ async () => {
   if (sc) sc.scrollTop = sc.scrollHeight;
   window.scrollTo(0, document.body.scrollHeight);
   await sleep(1200);
-  const parseItem = (el, level, rootId) => {
+
+  const parseItem = (el, level) => {
     const id = (el.id || '').replace(/^comment-/, '');
     const text = (el.querySelector('.content')?.innerText || '').trim();
     const like = (el.querySelector('.interactions .like .count')?.innerText || '').trim();
@@ -46,15 +48,22 @@ async () => {
       children: []
     };
   };
-  const parseReplies = (container, rootId, level) =>
+  // 递归处理 reply-container 内的一级、二级、三级回复。
+  const parseReplies = (container, level) =>
     [...container.querySelectorAll(':scope > .list-container > .comment-item, :scope > .comment-item')]
-      .map(r => parseItem(r, level, rootId));
+      .map(r => {
+        const node = parseItem(r, level);
+        const sub = r.querySelector(':scope > .reply-container');
+        if (sub) node.children = parseReplies(sub, level + 1);
+        return node;
+      });
+
   const items = [...document.querySelectorAll('.parent-comment')].map(pc => {
     const top = pc.querySelector(':scope > .comment-item');
     if (!top) return null;
-    const node = parseItem(top, 1, (top.id || '').replace(/^comment-/, ''));
+    const node = parseItem(top, 1);
     const rc = pc.querySelector(':scope > .reply-container');
-    if (rc) node.children = parseReplies(rc, (top.id || '').replace(/^comment-/, ''), 2);
+    if (rc) node.children = parseReplies(rc, 2);
     return node;
   }).filter(Boolean);
   const m = document.body.innerText.match(/共\s*([\d,]+)\s*条评论/);
@@ -68,6 +77,8 @@ async () => {
 """
 
 # 知乎专栏/回答页：滚动并展开可见评论后一次性提取。
+# 一级评论与楼中楼通过缩进（getBoundingClientRect().left）区分；
+# 回复挂到当前一级评论下；不做全局文本去重，避免不同楼层的相同文本被合并。
 ZHIHU_EXPAND_AND_PARSE = r"""
 async () => {
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -88,27 +99,50 @@ async () => {
     lastCount = count;
     if (stable >= 3) break;
   }
+
+  const nodes = [...document.querySelectorAll('.CommentContent')];
+  const baseLeft = nodes.length ? nodes[0].getBoundingClientRect().left : 0;
   const seen = new Set();
-  const items = [];
-  for (const el of [...document.querySelectorAll('.CommentContent')]) {
+  const roots = [];
+  let currentTop = null;
+  let currentTopIndex = -1;
+
+  for (const el of nodes) {
     const text = (el.innerText || '').trim();
-    if (!text || seen.has(text)) continue;
-    seen.add(text);
-    items.push({
+    if (!text) continue;
+    const wrapper = el.parentElement ? el.parentElement.innerText : '';
+    const timeMatch = wrapper.match(/\d{1,2}-\d{1,2}\s*·\s*[^\n]+/);
+    const timeText = timeMatch ? timeMatch[0] : null;
+    const left = Math.round(el.getBoundingClientRect().left);
+    const level = left > baseLeft + 15 ? 2 : 1;
+    const parentIndex = level === 1 ? 'root' : String(currentTopIndex);
+    const key = `${level}|${parentIndex}|${text}|${timeText}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const node = {
       platform_comment_id: null,
       content: text,
       like_text: null,
-      time_displayed: null,
-      comment_level: 1,
+      time_displayed: timeText,
+      comment_level: level,
       children: []
-    });
+    };
+    if (level === 1 || !currentTop) {
+      node.comment_level = 1;
+      roots.push(node);
+      currentTop = node;
+      currentTopIndex = roots.length - 1;
+    } else {
+      currentTop.children.push(node);
+    }
   }
+
   const m = document.body.innerText.match(/(\d+)\s*条评论/);
   return {
     title: document.title,
     url: location.href.split('?')[0],
     displayed_total: m ? Number(m[1]) : null,
-    items
+    items: roots
   };
 }
 """

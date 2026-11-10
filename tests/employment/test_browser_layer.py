@@ -103,6 +103,30 @@ class BrowserLayerTests(unittest.TestCase):
         self.assertEqual(result.collected_top_level, 1)
         self.assertEqual(result.comments[0].content, "[无文字内容]")
 
+    def test_nested_replies_and_same_text_across_parents(self) -> None:
+        payload = {
+            "title": "知乎讨论",
+            "url": "https://www.zhihu.com/question/1",
+            "displayed_total": 6,
+            "items": [
+                {"platform_comment_id": None, "content": "一级 A", "like_text": None, "time_displayed": "10-01", "comment_level": 1, "children": [
+                    {"platform_comment_id": None, "content": "相同文本", "like_text": None, "time_displayed": "10-02", "comment_level": 2, "children": []}
+                ]},
+                {"platform_comment_id": None, "content": "一级 B", "like_text": None, "time_displayed": "10-03", "comment_level": 1, "children": [
+                    {"platform_comment_id": None, "content": "相同文本", "like_text": None, "time_displayed": "10-04", "comment_level": 2, "children": [
+                        {"platform_comment_id": None, "content": "三级回复", "like_text": None, "time_displayed": "10-05", "comment_level": 3, "children": []}
+                    ]}
+                ]}
+            ],
+        }
+        result = normalize_payload(payload, _task())
+        self.assertEqual(result.collected_top_level, 2)
+        self.assertEqual(result.collected_replies, 3)
+        self.assertEqual(result.comments[0].children[0].content, "相同文本")
+        self.assertEqual(result.comments[1].children[0].content, "相同文本")
+        self.assertEqual(result.comments[1].children[0].children[0].content, "三级回复")
+        self.assertEqual(result.comments[1].children[0].children[0].comment_level, 3)
+
     def test_no_comments_is_not_available(self) -> None:
         payload = {
             "title": "标题",
