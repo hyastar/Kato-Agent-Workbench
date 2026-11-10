@@ -5,11 +5,13 @@
 ## 1. 你的身份
 
 - 你是 **Kato-Agent-Workbench 的开发与监督者**：负责架构决策、代码开发、测试验收与复杂异常分析。你不是这个仓库内部另一个待开发的 AI Agent。
-- 自然语言理解、任务优先级与高风险决策仍由宿主 Agent 与用户完成；**页面级执行**由仓库内的 `kato_engine/`（Kato Collection Engine V6）负责。
-- 职责边界（V6 起生效）：
-  - `kato_engine/`：浏览器会话管理、关键词调度、候选队列、页面导航、文章与评论采集、落库、Markdown 导出、恢复与监测；
+- 自然语言理解、任务优先级与高风险决策仍由宿主 Agent 与用户完成；页面级执行由 **ZCode 内置 Browser Use** 完成。
+- 职责边界（V6.1 起生效）：
+  - ZCode 内置浏览器：持有会话、执行搜索/进入详情/展开评论/DOM 提取，登录由用户在该面板完成；
+  - `kato_engine/agent/`：任务与结果契约（`next-batch` / `submit-batch`）、批次规划、结果校验与入库；
+  - `kato_engine/` 其余模块：关键词调度、候选队列、分类、SQLite、Markdown、Checkpoint、统计；
   - `scripts/`：确定性离线工具（建库、登记、查询、校验、报告），不发起网络请求；
-  - 宿主 Agent：不逐篇操作浏览器，只在启动、人工验证、异常处置与验收时介入。
+  - Python **不得**启动独立 Chrome、连接 CDP 或管理 Windows 窗口焦点。
 - 用户拥有任务目标、账号登录、付费与高风险操作的最终决定权。
 - 不要把这个项目改造成通用 Agent 引擎，也不要引入 LangChain、CrewAI、AutoGen、Celery、Redis、Docker、FastAPI、React 或 ORM，除非用户明确要求。
 
@@ -30,7 +32,7 @@
 
 1. 阅读根目录 `AGENTS.md`；按需阅读 `README.md`、`docs/WORKFLOW.md`、`docs/SAFETY.md`。
 2. 完整读取 `tasks/CURRENT_TASK.md`，确认目标、范围、输入、筛选条件、人工确认点、验收标准。
-3. 检查实际可用性：V6 引擎、Chrome 与持久化 Profile、Conda 环境、SQLite、磁盘空间、目标站点权限。不可用就如实报告，**不要假装操作成功**。
+3. 检查实际可用性：ZCode 内置浏览器与登录态、Conda 环境、SQLite、磁盘空间、目标站点权限。不可用就如实报告，**不要假装操作成功**。
 4. 生成唯一 `run-id`（UTC 时间戳 + 短随机标识，如 `20261106T082500Z-a1b2`）；创建 `runs/<run-id>/`；保存任务快照 `task_snapshot.md`；向 SQLite 登记任务与执行记录。
 5. 分阶段执行，在 `runs/<run-id>/progress.md` 记录进度与检查点；收集来源 URL 与许可信息；需要登录/CAPTCHA/批量下载时请求用户确认。
 6. 校验成果；把最终路径、元信息、状态写入 SQLite 和 `results.json`，写 `report.md`。
@@ -120,7 +122,7 @@
 
 ## 11. 就业情报 Campaign 长期规范
 
-1. 本项目是 Agent 原生工作台 + 独立采集引擎：`kato_engine/`（V6）拥有浏览器会话与任务循环，宿主 Agent 负责开发、监督与异常决策。
+1. 本项目是 Agent 原生工作台：浏览器会话由 ZCode 内置 Browser Use 持有，`kato_engine/` 负责调度、入库与统计，宿主 Agent 负责编排与异常决策。
 2. 使用 Conda 环境 `Kato-Agent-Workbench`、Python 3.12；SQLite 存结构化索引，Markdown 存可读档案。
 3. 每次任务先读取任务文档，创建 Run / Campaign / Batch，再开始浏览器操作。
 4. 文章与评论分开存储；评论不计入文章目标。

@@ -1,5 +1,34 @@
 # V6 引擎运维手册
 
+> **V6.1 更新（2026-11-10）**：浏览器执行已切换为 ZCode 内置 Browser Use。
+> 本文中"启动 Chrome / Profile 占用 / 焦点管理 / `browser-check` / `campaign-run`"等章节**已失效**，
+> 采集流程请以下文"V6.1 运行方式"和 `V6_1_ZCODE_BROWSER.md` 为准。
+
+## V6.1 运行方式
+
+```bash
+# 1. 关键词调度（离线，可先看会搜什么）
+python -m kato_engine.cli plan --platform xiaohongshu --limit 3
+
+# 2. 开一次会话（记录目标与剩余量）
+python -m kato_engine.agent.cli session-start --add-xhs 113 --add-zhihu 0
+
+# 3. 取下一批任务 → 在 ZCode 内置浏览器执行 workflow_js → 写 batch.json
+python -m kato_engine.agent.cli next-batch --run <run_id> --size 4
+python -m kato_engine.agent.cli submit-batch --run <run_id> --task <task.json> --file <batch.json>
+
+# 4. 遇到登录：让用户在 ZCode 浏览器面板完成，然后
+python -m kato_engine.cli requeue --platform xiaohongshu
+
+# 5. 校验与报告
+python -m kato_engine.cli verify-artifacts
+python -m kato_engine.cli report --markdown
+```
+
+需要人工登录时，ZCode 只负责提示与暂停，不弹窗、不代填、不绕过。
+
+---
+
 面向操作者（用户与宿主 Agent）。设计说明见 `V6_ARCHITECTURE.md`，审计结论见 `V6_AUDIT.md`。
 
 ---

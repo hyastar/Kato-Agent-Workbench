@@ -12,7 +12,7 @@ from kato_engine.collection.classification import classify
 from kato_engine.collection.comments import select_comment_nodes
 from kato_engine.config.settings import load_settings
 from kato_engine.core.lifecycle import ArticleService
-from kato_engine.platforms.base import ArticleData, CommentBundle, CommentNode, SearchHit
+from kato_engine.collection.models import ArticleData, CommentBundle, CommentNode, SearchHit
 from kato_engine.storage.checkpoints import read_checkpoint, write_checkpoint
 from kato_engine.storage.markdown import verify_artifacts
 from kato_engine.storage.repository import EngineRepository
@@ -67,7 +67,6 @@ class StorageTestCase(unittest.TestCase):
             db_path=self.tmp / "catalog" / "test.sqlite3",
             data_dir=self.tmp / "data",
             runs_dir=self.tmp / "runs",
-            profile_dir=self.tmp / "profile",
         )
         self.repo, _ = EngineRepository.open(self.settings)
         self.addCleanup(self.repo.close)

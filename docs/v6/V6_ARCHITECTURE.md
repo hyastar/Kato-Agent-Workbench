@@ -1,3 +1,7 @@
+> **状态：已被 V6.1 取代（2026-11-10）。**
+> 浏览器执行层从"Python 拥有 Chrome 会话"改为"ZCode 内置 Browser Use 持有会话"。
+> 现行架构见 `docs/v6/V6_1_ZCODE_BROWSER.md`；本文保留为 V6 设计与审计依据。
+
 # Kato Collection Engine V6 架构
 
 版本：6.0

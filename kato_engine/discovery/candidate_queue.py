@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from kato_engine.discovery.deduplication import canonical_url
 from kato_engine.discovery.keyword_planner import QueryPlan
 from kato_engine.observability.logging import get_logger
-from kato_engine.platforms.base import SearchHit
+from kato_engine.collection.models import SearchHit
 from kato_engine.storage.repository import EnqueueResult, EngineRepository
 
 _LOGGER = get_logger("kato.queue")

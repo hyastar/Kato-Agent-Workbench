@@ -15,7 +15,7 @@ from typing import Any
 
 from scripts.employment.validate import select_comments
 
-from kato_engine.platforms.base import CommentBundle, CommentNode
+from kato_engine.collection.models import CommentBundle, CommentNode
 
 
 @dataclass

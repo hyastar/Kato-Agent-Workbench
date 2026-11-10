@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .candidate_queue import CandidateQueue, SearchHit
+from .candidate_queue import CandidateQueue
+from kato_engine.collection.models import SearchHit
 from .deduplication import canonical_url
 from .keyword_planner import (
     Dimension,

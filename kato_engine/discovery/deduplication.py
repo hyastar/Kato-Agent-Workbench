@@ -12,9 +12,14 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
-from kato_engine.browser.navigation import strip_query
+def strip_query(url: str) -> str:
+    """去掉查询串与 fragment，保留 scheme/host/path。"""
+    parts = urlsplit((url or "").strip())
+    if not parts.scheme or not parts.netloc:
+        return (url or "").strip()
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path or "/", "", ""))
 
 _XHS_NOTE_RE = re.compile(r"/(?:explore|discovery/item)/([0-9a-fA-F]{16,32})")
 _ZHIHU_QUESTION_RE = re.compile(r"/question/(\d+)")

@@ -339,6 +339,41 @@ class EngineRepository:
         ).fetchone()
         return str(row["state"]) if row else None
 
+    def claim_candidate(
+        self, candidate_id: str, *, attempts_max: int | None = None, owner: str | None = None
+    ) -> str | None:
+        """按候选 ID 认领（供批次任务使用）；返回认领后的状态。"""
+        import os
+        import socket
+
+        row = self.conn.execute(
+            "SELECT state, attempts FROM engine_candidates WHERE candidate_id = ?",
+            (candidate_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        state = str(row["state"])
+        attempts = int(row["attempts"])
+        if state in {"queued", "retryable_failed"}:
+            if attempts_max is not None and attempts >= attempts_max:
+                self._transition(
+                    candidate_id,
+                    "rejected",
+                    error="重试次数已达上限",
+                    error_type="retry_exhausted",
+                )
+                return "rejected"
+            assert_transition(state, "processing")
+            lease_owner = owner or f"{socket.gethostname()}:{os.getpid()}"
+            with self.conn:
+                self.conn.execute(
+                    "UPDATE engine_candidates SET state = 'processing', attempts = attempts + 1, "
+                    "lease_owner = ?, lease_until = ?, updated_at = ? WHERE candidate_id = ?",
+                    (lease_owner, iso_after(self.settings.lease_seconds), db.utc_now(), candidate_id),
+                )
+            return "processing"
+        return state
+
     def mark_accepted(self, candidate_id: str, item_id: str) -> None:
         self._transition(candidate_id, "accepted", item_id=item_id)
 

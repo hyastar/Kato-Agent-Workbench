@@ -34,7 +34,6 @@ class RepositoryTestCase(unittest.TestCase):
             db_path=self.tmp / "catalog" / "test.sqlite3",
             data_dir=self.tmp / "data",
             runs_dir=self.tmp / "runs",
-            profile_dir=self.tmp / "profile",
         )
         self.repo, self.schema = EngineRepository.open(self.settings)
         self.addCleanup(self.repo.close)

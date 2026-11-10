@@ -46,10 +46,10 @@ Kato-Agent-Workbench/
 | Python | **3.12** | 由 `environment.yml` 固定 |
 | Node.js | LTS | 优先 26 LTS；不兼容时用 24 LTS |
 | npx | 随 Node 提供 | 用于启动 Playwright MCP，无需 `package.json` |
-| 浏览器 | Chrome（本机已安装） | V6 引擎通过 `channel="chrome"` 驱动 |
+| 浏览器 | ZCode 内置 Browser Use | 采集会话的持有者 |
 | 编码 Agent | Codex / Zcode | 开发、监督与验收 |
 
-本仓库不使用 pnpm，不创建前端工程。`scripts/` 只依赖标准库；V6 引擎额外依赖 Python 包 `playwright`（运行 `python -m pip install playwright`），不需要下载 Chromium。
+本仓库不使用 pnpm，不创建前端工程。`scripts/` 与 `kato_engine/` 只依赖 Python 标准库；浏览器能力由 ZCode 内置 Browser Use 提供，不需要安装 Playwright 或额外浏览器驱动。
 
 ## 快速开始
 
@@ -121,34 +121,44 @@ Agent 会读取 `AGENTS.md` 与任务文档，做环境检查，生成 `run-id`�
 
 `runs/` 与 `data/` 的内容默认不入 Git，避免把数据与运行日志提交到远程仓库；需要归档时由你明确决定。
 
-## V6 采集引擎
+## V6.1 采集引擎（ZCode 内置浏览器）
 
-V6 引擎自己拥有 Chrome 会话与任务循环，宿主 Agent 不再逐篇操作浏览器。详细设计见 `docs/v6/V6_ARCHITECTURE.md`，运维步骤见 `docs/v6/V6_OPERATIONS.md`。
+V6.1 起，浏览器执行后端统一为 **ZCode 内置 Browser Use**：
+
+- ZCode 持有浏览器会话、执行页面动作（搜索、进入详情、展开评论、提取 DOM）；
+- Python 只负责关键词调度、候选队列、分类、SQLite、Markdown、Checkpoint 与统计；
+- Python **不**启动 Chrome、不连接 CDP、不管理窗口焦点。
+
+详细设计见 `docs/v6/V6_1_ZCODE_BROWSER.md`，运维步骤见 `docs/v6/V6_OPERATIONS.md`。
 
 ```bash
 conda activate Kato-Agent-Workbench
-python -m pip install -r requirements.txt   # 或 pip install playwright
 
-# 1. 浏览器自检（启动真实 Chrome → DOM 提取 → 关闭）
-python -m kato_engine.cli browser-check
-
-# 2. 看关键词调度（不联网）
+# 1. 关键词调度（离线）
 python -m kato_engine.cli plan --platform xiaohongshu --limit 3
 python -m kato_engine.cli queue-stats
 
-# 3. 连续采集（真实浏览器；--add-* 表示"本轮新增多少篇"）
-python -m kato_engine.cli campaign-run --add-xhs 160 --add-zhihu 40
+# 2. 开启一次采集会话（Python 计算目标与剩余量）
+python -m kato_engine.agent.cli session-start --add-xhs 160 --add-zhihu 40
 
-# 4. 校验与报告
+# 3. 取下一批浏览器任务
+python -m kato_engine.agent.cli next-batch --run <run_id> --size 4
+
+# 4. ZCode 用内置浏览器执行 task 里的 workflow_js，写出 batch.json
+#    然后提交入库
+python -m kato_engine.agent.cli submit-batch --run <run_id> --task <task.json> --file <batch.json>
+
+# 5. 校验与报告
 python -m kato_engine.cli verify-artifacts
 python -m kato_engine.cli report --markdown
 ```
 
 运行约束：
 
-- 持久化 Profile 固定为仓库外的 `.kato-playwright-profile`，同一时间只能有一个 Chrome 使用它；被占用时引擎会直接报 `profile_in_use`，不会改用临时 Profile。
-- 登录、验证码、设备确认由用户在可见 Chrome 中完成；引擎遇到这类页面会把候选标记为 `blocked` 并暂停该平台。
-- 中断后重新执行同一命令即可从 SQLite 里的候选队列继续，不会重复入库。
+- 登录、验证码、设备确认由用户在 **ZCode 内置浏览器面板**完成，Agent 不代填、不绕过。
+- 遇到登录/风控时，本批停止并把候选标记为 `blocked`，恢复后可用 `python -m kato_engine.cli requeue` 放回队列。
+- ZCode 关闭即浏览器会话结束；进度保存在 SQLite 与 `runs/<run-id>/checkpoint.json`，重新打开后继续。
+- 重复提交同一批结果不会重复入库（文章按 `platform + canonical_url` 幂等，评论按层级与内容哈希去重）。
 
 ## 数据集目录工具
 
@@ -203,9 +213,10 @@ python -m scripts.validate_dataset data/raw/... --json
 
 `tasks/CURRENT_TASK.md` 仍是默认入口。用户在指令中明确点名 `tasks/EMPLOYMENT_2026_2027.md`（或其他具名任务）时，该文件即是本轮任务定义，并作为 `runs/<run-id>/task_snapshot.md` 的快照来源。
 
-### 2. 浏览器采集
+### 2. 浏览器采集（ZCode 内置浏览器）
 
-- 登录、验证码、设备确认由用户在可见浏览器窗口亲自完成；Agent 不接触密码或 Cookie。
+- V6.1 起浏览器执行统一走 ZCode 内置 Browser Use；不再启动独立 Chrome 或 Python Playwright。
+- 登录、验证码、设备确认由用户在 ZCode 浏览器面板亲自完成；Agent 不接触密码或 Cookie。
 - 使用页面正常可见的搜索框、结果链接、滚动与详情页；每平台条目上限与关键词以任务文档为准。
 - 不调用隐藏/逆向接口，不抓取登录态私有数据，不进行点赞、评论、私信、发帖等互动。
 - 遇到 403、限流、验证码循环或权限提示时停止该平台，记录 `blocked` / `partial`，不绕过访问控制。
@@ -251,28 +262,11 @@ python -m scripts.research_catalog export --format json
 - 只做规范化、不入网的命令：`python -m scripts.employment.browser.runner normalize --task task.json --payload payload.json`。
 - 说明：4 篇盲测未执行；Token 未测量；不宣称长期后台 Worker 或 1000 篇吞吐。
 
-## 浏览器 MCP 与首次登录
+## 浏览器 MCP（历史记录）
 
-Codex 的项目级配置在 `.codex/config.toml`：
+V6.1 起浏览器执行链路是 ZCode 内置 Browser Use，本节描述的 Playwright MCP 配置**不再参与采集执行**，仅作为历史记录与可选调试手段保留。
 
-```toml
-[mcp_servers.playwright]
-command = "npx"
-args = [
-  "-y",
-  "@playwright/mcp@0.0.84",
-  "--browser=chrome",
-  "--user-data-dir=../.kato-playwright-profile",
-]
-```
-
-1. 在项目目录启动 Codex，按提示信任该项目（项目级配置通常需要信任后生效）。
-2. 确认 Playwright MCP 出现在工具列表中。
-3. 首次需要登录的站点，由你**亲自**在弹出的浏览器中登录。
-4. 该版本未指定 `--user-data-dir` 时会使用临时目录；本项目显式使用仓库上一级的持久化目录 `../.kato-playwright-profile`，登录状态可保留且不在版本库内。
-5. 详细配置、扩展模式与排障见 `docs/MCP_SETUP.md`。
-
-浏览器 MCP 连通不等于拥有站点授权；登录、验证码、付费与批量下载仍需人工处理。
+首次登录请在 ZCode 内置浏览器面板完成；登录态由 ZCode 管理，本项目不保存 Cookie 或 Profile。
 
 ## 安全与 Git 策略
 

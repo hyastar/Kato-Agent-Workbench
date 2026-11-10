@@ -1,25 +1,18 @@
-"""平台适配器契约。
+"""与浏览器实现无关的数据模型。
 
-适配器只负责"在真实页面上做什么"，不负责入库与导出：
-- 搜索 → 候选链接
-- 点击进入详情
-- 读取正文与元信息
-- 展开并解析一级评论与楼中楼
-
-作者昵称、头像、用户 ID、主页、位置一律在抽取阶段丢弃，不进入内存模型。
+V6.1 起浏览器由 ZCode 内置 Browser Use 持有；Python 只接收**结构化结果**，
+因此这里不再引用任何 Playwright 类型。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol
-
-from playwright.sync_api import Page
+from typing import Any
 
 
 @dataclass
 class SearchHit:
-    """搜索结果条目。`canonical_url` 已去跟踪参数；`extra` 保存点击所需信息。"""
+    """搜索结果条目。`canonical_url` 已去跟踪参数。"""
 
     title: str
     canonical_url: str
@@ -35,6 +28,19 @@ class SearchOutcome:
     raw_count: int
     hits: list[SearchHit]
     notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "platform": self.platform,
+            "query": self.query,
+            "page_title": self.page_title,
+            "raw_count": self.raw_count,
+            "hits": [
+                {"title": hit.title, "canonical_url": hit.canonical_url, "raw_index": hit.raw_index}
+                for hit in self.hits
+            ],
+            "notes": list(self.notes),
+        }
 
 
 @dataclass
@@ -94,22 +100,3 @@ class ArticleData:
     @property
     def body_length(self) -> int:
         return len(self.body_text)
-
-
-class PlatformAdapter(Protocol):
-    """浏览器操作契约。所有方法都直接作用于传入的 Page。"""
-
-    name: str
-    home_url: str
-
-    def search_url(self, query: str) -> str: ...
-
-    def search(self, page: Page, query: str, *, limit: int) -> SearchOutcome: ...
-
-    def open_detail(self, page: Page, hit: SearchHit) -> tuple[Page, str]: ...
-
-    def read_article(self, page: Page) -> ArticleData: ...
-
-    def collect_comments(self, page: Page, *, limit: int) -> CommentBundle: ...
-
-    def displayed_comments_total(self, page: Page) -> int | None: ...

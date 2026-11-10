@@ -3,7 +3,3 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12
-  - pip
-  - pip:
-      # V6 采集引擎的浏览器驱动；使用本机已安装的 Chrome，不下载 Chromium。
-      - playwright>=1.65,<2
