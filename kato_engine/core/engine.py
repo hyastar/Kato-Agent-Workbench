@@ -101,6 +101,7 @@ class CampaignEngine:
         self.queue = CandidateQueue(repo)
         self.service = ArticleService(repo)
         self._contexts: dict[str, dict[str, Any]] = {}
+        self._pages: dict[str, Any] = {}
         self._paused: dict[str, str] = {}
         self._empty_searches: dict[str, int] = {}
 
@@ -140,7 +141,32 @@ class CampaignEngine:
                     remaining = self._remaining(platform, options)
                     if remaining <= 0:
                         continue
-                    outcome = self._process_one(platform, options, summary)
+                    try:
+                        outcome = self._process_one(platform, options, summary)
+                    except EngineError as exc:
+                        _LOGGER.error("平台 %s 处理异常：%s", platform, exc.message)
+                        summary.failures.append(
+                            {
+                                "platform": platform,
+                                "error_type": exc.error_type,
+                                "message": exc.message[:200],
+                            }
+                        )
+                        if exc.needs_human:
+                            self._paused[platform] = exc.error_type
+                            outcome = "paused"
+                        else:
+                            outcome = "failed"
+                    except Exception as exc:  # noqa: BLE001
+                        _LOGGER.exception("平台 %s 未捕获异常", platform)
+                        summary.failures.append(
+                            {
+                                "platform": platform,
+                                "error_type": "unclassified",
+                                "message": f"{type(exc).__name__}: {exc}"[:200],
+                            }
+                        )
+                        outcome = "failed" 
                     if outcome in {"accepted", "rejected", "failed", "resumed"}:
                         progressed = True
                     if outcome == "accepted" or outcome == "resumed":
@@ -205,12 +231,12 @@ class CampaignEngine:
         stats["claimed"] += 1
         candidate = dict(row)
         started = time.monotonic()
-        page_before = self.manager.ensure().page()
+        page_before = self._page(platform)
         collected = None
         try:
             hit = self._resolve_hit(platform, candidate, options)
             collected = collect_article(
-                self.manager.ensure().page(),
+                self._page(platform),
                 get_adapter(platform),
                 hit,
                 limit=self.settings.comment_limit,
@@ -309,7 +335,7 @@ class CampaignEngine:
             return "failed"
 
         adapter = get_adapter(platform)
-        page = self.manager.ensure().page()
+        page = self._page(platform)
         started = time.monotonic()
         try:
             outcome = adapter.search(page, plan.combined_query, limit=options.search_limit)
@@ -390,7 +416,7 @@ class CampaignEngine:
         url = str(candidate["canonical_url"])
         query = str(candidate.get("combined_query") or "")
         adapter = get_adapter(platform)
-        page = self.manager.ensure().page()
+        page = self._page(platform)
 
         context = self._contexts.get(platform)
         if not context or context.get("query") != query or context["page"].is_closed():
@@ -414,6 +440,15 @@ class CampaignEngine:
             f"搜索结果中找不到候选：{url}",
             detail={"query": query},
         )
+
+    def _page(self, platform: str):
+        """每个平台使用独立标签页：避免两个平台的搜索页互相覆盖。"""
+        page = self._pages.get(platform)
+        if page is None or page.is_closed():
+            page = self.manager.ensure().new_page()
+            self._pages[platform] = page
+            self._contexts.pop(platform, None)
+        return page
 
     def _restore_search_page(self, platform: str) -> bool:
         """从详情页返回搜索结果页，保留同一查询的候选上下文。"""

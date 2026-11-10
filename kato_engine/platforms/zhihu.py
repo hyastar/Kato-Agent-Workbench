@@ -302,6 +302,19 @@ class ZhihuAdapter:
                 except PlaywrightError:
                     continue
 
+        # 回答页可能没有 ContentItem 容器：退回到页面上任意"N 条评论"入口。
+        if page.locator(".CommentContent").count() == 0:
+            for candidate in page.locator("button:has-text('条评论')").all()[:4]:
+                try:
+                    if candidate.is_visible():
+                        candidate.click(timeout=3_000)
+                        page.wait_for_timeout(1_500)
+                        if page.locator(".CommentContent").count() > 0:
+                            notes.append("通过页面评论入口展开评论区")
+                            break
+                except PlaywrightError:
+                    continue
+
         try:
             page.wait_for_selector(".CommentContent", timeout=12_000)
         except Exception as exc:  # noqa: BLE001
