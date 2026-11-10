@@ -251,11 +251,17 @@ async ({ tab, task, browser }) => {
     if (!SEARCH_URL) return;
     try {
       const url = String(await tab.playwright.evaluate("(() => location.href)()"));
-      if (url.indexOf('search_result') === -1 && url.indexOf('/search') === -1) {
-        await tab.goto(SEARCH_URL);
-        await tab.playwright.waitForLoadState({ state: 'domcontentloaded' });
-        await wait(1800);
-      }
+      if (url.indexOf('search_result') !== -1 || url.indexOf('/search') !== -1) return;
+      // 先尝试浏览器后退（SPA 内更快），失败再重新打开搜索页。
+      try {
+        await tab.playwright.evaluate("(() => history.back())()");
+        await wait(1200);
+        const back = String(await tab.playwright.evaluate("(() => location.href)()"));
+        if (back.indexOf('search_result') !== -1 || back.indexOf('/search') !== -1) return;
+      } catch (e) {}
+      await tab.goto(SEARCH_URL);
+      await tab.playwright.waitForLoadState({ state: 'domcontentloaded' });
+      await wait(1500);
     } catch (e) {}
   };
 
@@ -290,7 +296,10 @@ async ({ tab, task, browser }) => {
   };
 
   let okCount = 0;
-  while (pool.length && okCount < task.size) {
+  let attempts = 0;
+  // 失败卡片会拖长单批时间：最多尝试 size+2 个候选，保证一批能在时限内结束。
+  while (pool.length && okCount < task.size && attempts < task.size + 2) {
+    attempts += 1;
     const card = pool.shift();
     const t = {
       note_id: card.note_id || null,

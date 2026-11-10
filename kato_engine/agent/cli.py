@@ -235,11 +235,18 @@ def cmd_finish(args: argparse.Namespace) -> int:
                 (args.run,),
             ).fetchone()[0]
         )
+        started_at = str(run["started_at"] or "")
+        comments_added = int(
+            repo.conn.execute(
+                "SELECT COUNT(*) FROM research_comments WHERE collected_at >= ?",
+                (started_at,),
+            ).fetchone()[0]
+        )
         repo.finish_engine_run(
             args.run,
             stop_reason=args.reason,
             articles_added=accepted,
-            comments_added=0,
+            comments_added=comments_added,
         )
         payload = {
             "run_id": args.run,

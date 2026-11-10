@@ -119,6 +119,72 @@ def cmd_verify_artifacts(args: argparse.Namespace) -> int:
     return 0 if report["missing_count"] == 0 and report["mismatched_count"] == 0 else 2
 
 
+def cmd_export_missing(args: argparse.Namespace) -> int:
+    """为缺 Markdown 档案的文章补导出（历史失败遗留），并登记哈希。"""
+    from kato_engine.storage.markdown import export_article
+
+    settings, repo, _, library = _open()
+    campaign_id = args.campaign or library.campaign
+    summary: dict[str, Any] = {"campaign_id": campaign_id, "dry_run": args.dry_run}
+    try:
+        rows = repo.conn.execute(
+            "SELECT item_id, platform, title FROM research_items "
+            "WHERE campaign_id = ? AND (post_markdown_path IS NULL OR comments_markdown_path IS NULL)",
+            (campaign_id,),
+        ).fetchall()
+        exported = 0
+        details: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(repo.get_item(str(row["item_id"])) or {})
+            if not item:
+                continue
+            comments = [dict(comment) for comment in repo.item_comments(str(row["item_id"]))]
+            stats = {
+                "displayed_total": item.get("displayed_comments_total"),
+                "displayed_top_level": item.get("displayed_top_level"),
+                "collected_top_level": item.get("collected_top_level") or 0,
+                "displayed_replies": item.get("displayed_replies_total"),
+                "collected_replies": item.get("collected_replies") or 0,
+                "coverage_status": item.get("comment_coverage_status") or "not_available",
+                "sort_basis": item.get("comment_sort_basis") or "visible_order",
+            }
+            render_stats = {key: value for key, value in stats.items() if value is not None}
+            result = export_article(settings, item, comments, render_stats)
+            details.append(
+                {
+                    "item_id": item["item_id"],
+                    "platform": item["platform"],
+                    "post": result.post_path,
+                    "comments": result.comments_path,
+                    "changed": result.post_changed,
+                }
+            )
+            if not args.dry_run:
+                repo.set_markdown_paths(
+                    item["item_id"],
+                    post_path=result.post_path,
+                    comments_path=result.comments_path,
+                )
+                repo.upsert_artifact(
+                    item_id=item["item_id"],
+                    artifact_type="post_markdown",
+                    relative_path=result.post_path or "",
+                    sha256=result.post_sha or "",
+                )
+                repo.upsert_artifact(
+                    item_id=item["item_id"],
+                    artifact_type="comments_markdown",
+                    relative_path=result.comments_path or "",
+                    sha256=result.comments_sha or "",
+                )
+            exported += 1
+        summary.update({"candidates": len(rows), "exported": exported, "details": details})
+    finally:
+        repo.close()
+    _print(summary)
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     from kato_engine.observability.reporting import (
         build_report,
@@ -218,6 +284,11 @@ def build_parser() -> argparse.ArgumentParser:
     requeue.add_argument("--platform", required=True, choices=("xiaohongshu", "zhihu"))
     requeue.add_argument("--campaign")
     requeue.set_defaults(func=cmd_requeue)
+
+    export_missing = sub.add_parser("export-missing", help="补齐缺失的 Markdown 档案")
+    export_missing.add_argument("--campaign")
+    export_missing.add_argument("--dry-run", action="store_true")
+    export_missing.set_defaults(func=cmd_export_missing)
 
     verify = sub.add_parser("verify-artifacts", help="核对 Markdown 档案哈希")
     verify.add_argument("--campaign")
