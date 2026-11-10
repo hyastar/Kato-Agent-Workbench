@@ -116,6 +116,7 @@ def cmd_next_batch(args: argparse.Namespace) -> int:
             target_zhihu=target_zhihu,
             platform=args.platform,
             size=args.size,
+            dimension=args.dimension,
         )
         if plan.task is None:
             payload = {
@@ -218,6 +219,94 @@ def cmd_submit_batch(args: argparse.Namespace) -> int:
     return 0 if not summary.blocked else 3
 
 
+def cmd_dynamic_scan(args: argparse.Namespace) -> int:
+    """从最近文章标题/摘要中提取动态关键词候选（不自动进入查询队列）。"""
+    from kato_engine.agent.dynamic_keywords import extract_candidates
+
+    settings = load_settings()
+    library = load_keyword_library(settings.keyword_library_path)
+    repo, _ = EngineRepository.open(settings)
+    try:
+        campaign_id = args.campaign or library.campaign
+        rows = repo.conn.execute(
+            "SELECT item_id, title, summary FROM research_items "
+            "WHERE campaign_id = ? AND platform = ? ORDER BY collected_at DESC LIMIT ?",
+            (campaign_id, args.platform, args.scan_items),
+        ).fetchall()
+        texts = [
+            (str(row["item_id"]), str(row["title"] or "") + " " + str(row["summary"] or ""))
+            for row in rows
+        ]
+        existing = {kw for dim in library.dimensions for kw in dim.keywords}
+        existing.update(repo.executed_queries(args.platform))
+        candidates = extract_candidates(texts, existing=existing, limit=args.limit)
+        now = __import__("scripts.db", fromlist=["db"]).utc_now()
+        with repo.conn:
+            for item in candidates:
+                repo.conn.execute(
+                    "INSERT INTO engine_dynamic_keywords (keyword, dimension, source_platform, "
+                    "occurrences, status, sample_item_id, first_seen_at, updated_at) "
+                    "VALUES (?, ?, ?, ?, 'candidate', ?, ?, ?) "
+                    "ON CONFLICT(keyword, source_platform) DO UPDATE SET "
+                    "occurrences = excluded.occurrences, sample_item_id = excluded.sample_item_id, "
+                    "updated_at = excluded.updated_at",
+                    (
+                        item.keyword,
+                        args.dimension,
+                        args.platform,
+                        item.occurrences,
+                        item.sample_item_id,
+                        now,
+                        now,
+                    ),
+                )
+        payload = {
+            "campaign_id": campaign_id,
+            "platform": args.platform,
+            "scanned_items": len(rows),
+            "candidates": [
+                {"keyword": item.keyword, "occurrences": item.occurrences} for item in candidates
+            ],
+            "note": "候选不会自动进入查询队列，需 dynamic-approve 批准",
+        }
+    finally:
+        repo.close()
+    _print(payload)
+    return 0
+
+
+def cmd_dynamic_list(args: argparse.Namespace) -> int:
+    settings = load_settings()
+    repo, _ = EngineRepository.open(settings)
+    try:
+        rows = repo.conn.execute(
+            "SELECT keyword, dimension, source_platform, occurrences, status, updated_at "
+            "FROM engine_dynamic_keywords WHERE status = ? ORDER BY occurrences DESC LIMIT ?",
+            (args.status, args.limit),
+        ).fetchall()
+        payload = {"status": args.status, "items": [dict(row) for row in rows]}
+    finally:
+        repo.close()
+    _print(payload)
+    return 0
+
+
+def cmd_dynamic_set_status(args: argparse.Namespace) -> int:
+    settings = load_settings()
+    repo, _ = EngineRepository.open(settings)
+    try:
+        with repo.conn:
+            cursor = repo.conn.execute(
+                "UPDATE engine_dynamic_keywords SET status = ?, updated_at = ? WHERE keyword = ?",
+                (args.status, __import__("scripts.db", fromlist=["db"]).utc_now(), args.keyword),
+            )
+        payload = {"keyword": args.keyword, "status": args.status, "updated": cursor.rowcount}
+    finally:
+        repo.close()
+    _print(payload)
+    return 0
+
+
 def cmd_finish(args: argparse.Namespace) -> int:
     settings = load_settings()
     repo, _ = EngineRepository.open(settings)
@@ -315,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
     nxt.add_argument("--run", required=True)
     nxt.add_argument("--platform", choices=("xiaohongshu", "zhihu"))
     nxt.add_argument("--size", type=int, default=4)
+    nxt.add_argument("--dimension", help="只在该主题内选词（验证用）")
     nxt.set_defaults(func=cmd_next_batch)
 
     submit = sub.add_parser("submit-batch", help="提交浏览器结果并入库")
@@ -329,6 +419,27 @@ def build_parser() -> argparse.ArgumentParser:
     finish.add_argument("--reason", default="completed")
     finish.add_argument("--baseline", type=int, default=0)
     finish.set_defaults(func=cmd_finish)
+
+    dyn_scan = sub.add_parser("dynamic-scan", help="从真实文章提取动态关键词候选")
+    dyn_scan.add_argument("--campaign")
+    dyn_scan.add_argument("--platform", required=True, choices=("xiaohongshu", "zhihu"))
+    dyn_scan.add_argument("--scan-items", type=int, default=200)
+    dyn_scan.add_argument("--limit", type=int, default=40)
+    dyn_scan.add_argument("--dimension", default="job_search")
+    dyn_scan.set_defaults(func=cmd_dynamic_scan)
+
+    dyn_list = sub.add_parser("dynamic-list", help="查看动态关键词候选")
+    dyn_list.add_argument("--status", default="candidate", choices=("candidate", "approved", "rejected"))
+    dyn_list.add_argument("--limit", type=int, default=50)
+    dyn_list.set_defaults(func=cmd_dynamic_list)
+
+    dyn_approve = sub.add_parser("dynamic-approve", help="批准动态关键词进入查询队列")
+    dyn_approve.add_argument("--keyword", required=True)
+    dyn_approve.set_defaults(func=cmd_dynamic_set_status, status="approved")
+
+    dyn_reject = sub.add_parser("dynamic-reject", help="拒绝动态关键词")
+    dyn_reject.add_argument("--keyword", required=True)
+    dyn_reject.set_defaults(func=cmd_dynamic_set_status, status="rejected")
 
     status = sub.add_parser("status", help="查看进度与队列")
     status.add_argument("--run")

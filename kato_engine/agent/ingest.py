@@ -121,7 +121,8 @@ def ingest_batch(
 
     # 1) 搜索结果整体入队（未处理的候选留待下一批）
     hits = result.search_hits()
-    rows = [
+    total_cards = len(result.search.get("cards") or [])
+    raw_rows = [
         {
             "campaign_id": task.campaign_id,
             "platform": result.platform,
@@ -133,9 +134,22 @@ def ingest_batch(
         }
         for title, canonical, _index in hits
     ]
-    enqueued = repo.enqueue_candidates(rows, engine_run_id=engine_run_id)
+    # 先按 canonical URL 去重，把"批内重复"与"历史重复"分开统计
+    unique_rows: list[dict[str, Any]] = []
+    seen_in_batch: set[str] = set()
+    duplicate_in_batch = 0
+    for row in raw_rows:
+        url = str(row["canonical_url"])
+        if url in seen_in_batch:
+            duplicate_in_batch += 1
+            continue
+        seen_in_batch.add(url)
+        unique_rows.append(row)
+
+    enqueued = repo.enqueue_candidates(unique_rows, engine_run_id=engine_run_id)
     summary.new_candidates = enqueued.inserted
-    summary.duplicates = enqueued.duplicates
+    summary.duplicates = enqueued.duplicates + duplicate_in_batch
+    invalid_urls = max(total_cards - len(hits), 0)
 
     # 2) 逐篇入库
     for extraction in result.articles:
@@ -238,7 +252,7 @@ def ingest_batch(
 
     summary.opened = len(result.articles)
 
-    # 3) 记录关键词执行
+    # 3) 记录关键词执行（V6.2：拆分重复来源与有效产出）
     repo.record_query_run(
         campaign_id=task.campaign_id,
         platform=result.platform,
@@ -254,5 +268,10 @@ def ingest_batch(
             "login_required" if summary.blocked else (None if summary.accepted else "no_accept")
         ),
         engine_run_id=engine_run_id,
+        new_candidates=summary.new_candidates,
+        duplicate_in_batch=duplicate_in_batch,
+        duplicate_with_history=enqueued.duplicates,
+        invalid_urls=invalid_urls,
+        relevance_passed=summary.accepted,
     )
     return summary

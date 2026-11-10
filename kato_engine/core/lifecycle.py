@@ -77,6 +77,7 @@ class ArticleService:
         item_id, created = self.repo.save_article(payload)
         self.repo.attach_article(item_id, campaign_id=campaign_id)
         self.repo.set_classification(item_id, **classification.to_db_fields())
+        self.repo.set_aux_classification(item_id, **classification.to_aux_fields())
 
         selection = collected.selection
         stats = selection.stats()

@@ -57,7 +57,8 @@ class KeywordLibraryTests(unittest.TestCase):
         library = load_keyword_library(KEYWORD_LIBRARY)
         self.assertEqual(len(library.dimensions), 10)
         self.assertGreaterEqual(len(library.modifiers), 3)
-        self.assertEqual(sum(len(d.keywords) for d in library.dimensions), 100)
+        # V6.2：基础关键词 250（原有 100 + 新增 150），修饰词不计入。
+        self.assertGreaterEqual(sum(len(d.keywords) for d in library.dimensions), 250)
 
     def test_combinations_use_modifier_when_no_year(self) -> None:
         self.assertEqual(
@@ -281,7 +282,7 @@ class QueueTests(RepositoryTestCase):
 
 class SchemaTests(RepositoryTestCase):
     def test_schema_version_and_engine_tables(self) -> None:
-        self.assertEqual(self.schema.to_version, 5)
+        self.assertEqual(self.schema.to_version, 6)
         self.assertTrue(self.schema.integrity_ok)
         self.assertEqual(self.schema.foreign_key_violations, 0)
         tables = {
@@ -297,7 +298,7 @@ class SchemaTests(RepositoryTestCase):
         again, report = EngineRepository.open(self.settings)
         try:
             self.assertEqual(report.applied, ())
-            self.assertEqual(report.to_version, 5)
+            self.assertEqual(report.to_version, 6)
         finally:
             again.close()
 

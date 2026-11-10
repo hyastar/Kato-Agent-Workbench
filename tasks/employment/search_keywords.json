@@ -1,69 +1,1480 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "campaign": "employment-2026-2027-1000-20261109",
-  "goal": "2026-2027 年中国青年就业生态研究",
+  "goal": "2023-2028 年中国青年就业生态研究：毕业生、求职、工资、社保、实习试用、裁员争议、外包派遣、待业回老家、工厂基层、互联网、制造业、医药医疗、租房攒钱、城市流动、转行",
   "target_total": 1000,
-  "modifiers": ["26届", "2026届", "27届", "2027届", "毕业半年", "毕业一年", "应届生"],
+  "modifiers": [
+    "2023",
+    "2024",
+    "2025",
+    "2026",
+    "2027",
+    "2028",
+    "23届",
+    "24届",
+    "25届",
+    "26届",
+    "27届",
+    "28届",
+    "2023届",
+    "2024届",
+    "2025届",
+    "2026届",
+    "2027届",
+    "2028届",
+    "应届生",
+    "往届生",
+    "毕业半年",
+    "毕业一年",
+    "毕业三年",
+    "本科",
+    "大专",
+    "研究生",
+    "实习生"
+  ],
   "dimensions": [
     {
       "id": "salary",
       "label": "工资与收入",
       "target": 160,
-      "keywords": ["2026 工资", "26届 到手工资", "应届生 月薪", "2026 工资低", "毕业半年 存款", "2026 薪资", "应届生 工资 多少", "试用期 工资", "到手 5000", "工资 房租"]
+      "keywords": [
+        "2026 工资",
+        "26届 到手工资",
+        "应届生 月薪",
+        "2026 工资低",
+        "毕业半年 存款",
+        "2026 薪资",
+        "应届生 工资 多少",
+        "试用期 工资",
+        "到手 5000",
+        "工资 房租",
+        "毕业第一份工资",
+        "转正工资涨幅",
+        "实发工资和招聘薪资",
+        "工资条扣款",
+        "税前税后工资差额",
+        "本科生薪资倒挂",
+        "同工不同酬",
+        "绩效工资被扣",
+        "年终奖缩水",
+        "工资三千生活",
+        "五险一金缴纳基数",
+        "社保断缴",
+        "公积金缴纳比例",
+        "公司不交社保",
+        "入职当月社保",
+        "劳务派遣五险一金",
+        "社保最低基数",
+        "公积金可以提现吗",
+        "灵活就业社保",
+        "社保个人承担多少"
+      ]
     },
     {
       "id": "job_search",
       "label": "求职与招聘平台",
       "target": 120,
-      "keywords": ["2026 找工作", "2026 boss直聘", "2026 智联招聘", "简历没人回", "投了500份简历", "2026 求职", "2026 面试", "2026 招聘 软件", "找工作 半年", "2026 求职难"]
+      "keywords": [
+        "2026 找工作",
+        "2026 boss直聘",
+        "2026 智联招聘",
+        "简历没人回",
+        "投了500份简历",
+        "2026 求职",
+        "2026 面试",
+        "2026 招聘 软件",
+        "找工作 半年",
+        "2026 求职难",
+        "Boss直聘已读不回",
+        "智联招聘找工作体验",
+        "前程无忧招聘",
+        "猎聘找工作",
+        "招聘岗位虚假薪资",
+        "求职海投没回应",
+        "HR面试失联",
+        "招聘要求工作经验",
+        "面试被压工资",
+        "找工作学历歧视",
+        "软件外包驻场",
+        "IT外包员工工资",
+        "劳务派遣工作体验",
+        "国企劳务派遣待遇",
+        "央企外包员工",
+        "第三方签约工作",
+        "外包转正式员工",
+        "外包员工被辞退",
+        "驻场工程师待遇",
+        "劳务派遣和正式工区别",
+        "医药行业就业",
+        "药厂QC工资",
+        "药厂QA工资",
+        "生物医药毕业就业",
+        "医药代表收入",
+        "医疗器械工程师工资",
+        "临床试验CRA薪资",
+        "医院劳务派遣",
+        "护士合同工工资",
+        "医药研发外包CRO",
+        "考研失败找工作",
+        "考公失败就业",
+        "考编失败找工作",
+        "国企和私企待遇",
+        "外卖骑手实际收入",
+        "网约车司机收入",
+        "毕业转行做销售",
+        "制造业转互联网",
+        "自由职业收入不稳定",
+        "兼职副业攒钱"
+      ]
     },
     {
       "id": "probation",
       "label": "试用期与入职",
       "target": 80,
-      "keywords": ["2026 试用期", "应届生试用期被辞退", "入职一个月想离职", "试用期工资", "试用期 转正", "试用期 被裁", "试用期 不交社保", "试用期 延长", "试用期 离职", "试用期 考核"]
+      "keywords": [
+        "2026 试用期",
+        "应届生试用期被辞退",
+        "入职一个月想离职",
+        "试用期工资",
+        "试用期 转正",
+        "试用期 被裁",
+        "试用期 不交社保",
+        "试用期 延长",
+        "试用期 离职",
+        "试用期 考核",
+        "实习工资多少",
+        "实习转正失败",
+        "大学生暑期实习",
+        "毕业实习被辞退",
+        "试用期不通过",
+        "试用期末淘汰",
+        "转正考核指标",
+        "新员工培训体验",
+        "实习没有工资",
+        "试岗不给钱"
+      ]
     },
     {
       "id": "layoff",
       "label": "裁员与失业",
       "target": 100,
-      "keywords": ["2026 被辞", "2026 被裁", "毕业即失业", "应届生被劝退", "失业三个月", "2026 裁员", "2026 失业", "被优化 2026", "毕业 被裁", "2026 失业金"]
+      "keywords": [
+        "2026 被辞",
+        "2026 被裁",
+        "毕业即失业",
+        "应届生被劝退",
+        "失业三个月",
+        "2026 裁员",
+        "2026 失业",
+        "被优化 2026",
+        "毕业 被裁",
+        "2026 失业金",
+        "裁员N+1赔偿",
+        "劳动仲裁经历",
+        "公司欠薪",
+        "合同到期不续签",
+        "公司倒闭失业",
+        "失业保险申领",
+        "部门解散被裁",
+        "毕业半年被裁",
+        "被辞退维权",
+        "裁员协商赔偿"
+      ]
     },
     {
       "id": "home_idle",
       "label": "回家待业与躺平",
       "target": 80,
-      "keywords": ["2026 躺平", "2026 回家", "毕业回老家", "全职儿女", "找不到工作回县城", "2026 待业", "回家 啃老", "毕业 待业", "2026 不上班", "回老家 工作"]
+      "keywords": [
+        "2026 躺平",
+        "2026 回家",
+        "毕业回老家",
+        "全职儿女",
+        "找不到工作回县城",
+        "2026 待业",
+        "回家 啃老",
+        "毕业 待业",
+        "2026 不上班",
+        "回老家 工作",
+        "县城找工作",
+        "毕业回农村",
+        "大城市回老家",
+        "失业在家半年",
+        "全职儿女生活费",
+        "家里蹲毕业生",
+        "毕业回家啃老",
+        "待业期间焦虑",
+        "回老家工资",
+        "低欲望不上班生活"
+      ]
     },
     {
       "id": "factory",
       "label": "工厂与蓝领工作",
       "target": 80,
-      "keywords": ["2026 进厂", "本科生进厂", "电子厂工资", "流水线工作", "工厂倒班", "2026 工厂", "进厂 打螺丝", "工厂 包吃住", "蓝领 工资", "2026 制造业 招工"]
+      "keywords": [
+        "2026 进厂",
+        "本科生进厂",
+        "电子厂工资",
+        "流水线工作",
+        "工厂倒班",
+        "2026 工厂",
+        "进厂 打螺丝",
+        "工厂 包吃住",
+        "蓝领 工资",
+        "2026 制造业 招工",
+        "电子厂小时工",
+        "工厂十二小时倒班",
+        "流水线计件工资",
+        "工厂包吃包住体验",
+        "进厂三个月",
+        "工厂劳务中介",
+        "普工月薪多少",
+        "仓库分拣工资",
+        "快递分拣夜班",
+        "工厂工伤赔偿"
+      ]
     },
     {
       "id": "computer",
       "label": "计算机与互联网就业",
       "target": 120,
-      "keywords": ["计算机寒冬", "2026 程序员就业", "计算机毕业转行", "Java找不到工作", "AI替代程序员", "2026 互联网 裁员", "计算机 应届 就业", "前端 找不到工作", "测试 外包", "2026 程序员 工资"]
+      "keywords": [
+        "计算机寒冬",
+        "2026 程序员就业",
+        "计算机毕业转行",
+        "Java找不到工作",
+        "AI替代程序员",
+        "2026 互联网 裁员",
+        "计算机 应届 就业",
+        "前端 找不到工作",
+        "测试 外包",
+        "2026 程序员 工资",
+        "嵌入式工程师薪资",
+        "软件测试毕业就业",
+        "算法岗位招聘门槛",
+        "大模型行业求职",
+        "人工智能专业就业",
+        "程序员35岁失业",
+        "前端外包员工工资",
+        "程序员转制造业",
+        "互联网实习留用",
+        "计算机研究生就业"
+      ]
     },
     {
       "id": "machinery",
       "label": "机械与制造业就业",
       "target": 100,
-      "keywords": ["机械专业就业", "2026 机械工资", "机械毕业进厂", "机械工程师加班", "自动化就业", "2026 机械 校招", "机械 转行", "制造业 工程师 工资", "机械 硕士 就业", "2026 智能制造"]
+      "keywords": [
+        "机械专业就业",
+        "2026 机械工资",
+        "机械毕业进厂",
+        "机械工程师加班",
+        "自动化就业",
+        "2026 机械 校招",
+        "机械 转行",
+        "制造业 工程师 工资",
+        "机械 硕士 就业",
+        "2026 智能制造",
+        "机械设计外包",
+        "机械工程师劳务派遣",
+        "PLC工程师工资",
+        "电气自动化实习",
+        "汽车零部件厂薪资",
+        "工艺工程师待遇",
+        "自动化设备调试出差",
+        "工业机器人调试工资",
+        "新能源电池厂招聘",
+        "机械工程师出差补贴"
+      ]
     },
     {
       "id": "campus",
       "label": "秋招、春招与补录",
       "target": 80,
-      "keywords": ["2026 秋招", "2027 秋招", "26届毁约", "27届提前批", "春招补录", "2026 校招", "2027 校招", "秋招 面经", "秋招 笔试", "三方协议"]
+      "keywords": [
+        "2026 秋招",
+        "2027 秋招",
+        "26届毁约",
+        "27届提前批",
+        "春招补录",
+        "2026 校招",
+        "2027 校招",
+        "秋招 面经",
+        "秋招 笔试",
+        "三方协议",
+        "本科毕业找工作",
+        "大专毕业就业",
+        "双非本科求职",
+        "二本毕业工资",
+        "三本毕业就业",
+        "硕士毕业找工作",
+        "研究生学历贬值",
+        "学历倒挂就业",
+        "毕业一年工作情况",
+        "毕业三年工资"
+      ]
     },
     {
       "id": "work_life",
       "label": "工作制度与生活成本",
       "target": 80,
-      "keywords": ["2026 大小周", "996 工资", "工作没双休", "五险一金", "租房后剩多少钱", "2026 加班", "单休 工作", "通勤 两小时", "2026 工作 生活", "到手工资 房租"]
+      "keywords": [
+        "2026 大小周",
+        "996 工资",
+        "工作没双休",
+        "五险一金",
+        "租房后剩多少钱",
+        "2026 加班",
+        "单休 工作",
+        "通勤 两小时",
+        "2026 工作 生活",
+        "到手工资 房租",
+        "毕业生租房预算",
+        "合租房租水电",
+        "房租占工资比例",
+        "一个月水电费",
+        "月薪四千攒钱",
+        "月薪五千存款",
+        "毕业一年攒了多少钱",
+        "在外工作生活费",
+        "一个人租房生活",
+        "工资不够交房租",
+        "北京工资房租",
+        "上海普通打工人生活",
+        "深圳工资生活成本",
+        "广州毕业生租房",
+        "杭州互联网就业",
+        "成都工资低",
+        "苏州工厂工资",
+        "东莞制造业就业",
+        "二线城市应届生工资",
+        "县城月薪三千"
+      ]
     }
-  ]
+  ],
+  "modifier_groups": {
+    "event_years": [
+      "2023",
+      "2024",
+      "2025",
+      "2026",
+      "2027",
+      "2028"
+    ],
+    "cohorts": [
+      "23届",
+      "24届",
+      "25届",
+      "26届",
+      "27届",
+      "28届"
+    ],
+    "cohorts_full": [
+      "2023届",
+      "2024届",
+      "2025届",
+      "2026届",
+      "2027届",
+      "2028届"
+    ],
+    "descriptors": [
+      "应届生",
+      "往届生",
+      "毕业半年",
+      "毕业一年",
+      "毕业三年",
+      "本科",
+      "大专",
+      "研究生",
+      "实习生"
+    ]
+  },
+  "directions": [
+    {
+      "id": "graduate_education",
+      "label": "毕业生与学历就业",
+      "dimension": "campus"
+    },
+    {
+      "id": "job_platform",
+      "label": "招聘平台与找工作",
+      "dimension": "job_search"
+    },
+    {
+      "id": "wage_income",
+      "label": "工资与收入",
+      "dimension": "salary"
+    },
+    {
+      "id": "social_insurance",
+      "label": "五险一金与社保",
+      "dimension": "salary"
+    },
+    {
+      "id": "internship_probation",
+      "label": "实习、试用期与转正",
+      "dimension": "probation"
+    },
+    {
+      "id": "layoff_dispute",
+      "label": "裁员、失业和劳动争议",
+      "dimension": "layoff"
+    },
+    {
+      "id": "outsourcing_dispatch",
+      "label": "外包与劳务派遣",
+      "dimension": "job_search"
+    },
+    {
+      "id": "idle_hometown",
+      "label": "待业、躺平与回老家",
+      "dimension": "home_idle"
+    },
+    {
+      "id": "factory_labor",
+      "label": "工厂与基层劳动",
+      "dimension": "factory"
+    },
+    {
+      "id": "computer_internet",
+      "label": "计算机与互联网",
+      "dimension": "computer"
+    },
+    {
+      "id": "machinery_electric",
+      "label": "机械、电气与制造业",
+      "dimension": "machinery"
+    },
+    {
+      "id": "medical_pharma",
+      "label": "医药与医疗行业",
+      "dimension": "job_search"
+    },
+    {
+      "id": "housing_saving",
+      "label": "租房、水电与攒钱",
+      "dimension": "work_life"
+    },
+    {
+      "id": "city_mobility",
+      "label": "城市就业与人口流动",
+      "dimension": "work_life"
+    },
+    {
+      "id": "career_transition",
+      "label": "职业选择与转行",
+      "dimension": "job_search"
+    }
+  ],
+  "keyword_meta": {
+    "毕业 被裁": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期 工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "回家 啃老": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 智联招聘": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "本科生进厂": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期 考核": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 招聘 软件": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "机械毕业进厂": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "制造业 工程师 工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 制造业 招工": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "回老家 工作": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "秋招 笔试": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "计算机毕业转行": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "27届提前批": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 躺平": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "应届生 工资 多少": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "春招补录": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 失业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "工资 房租": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "进厂 打螺丝": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期 离职": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 被裁": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "工作没双休": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期 不交社保": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "毕业回老家": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2027 校招": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "毕业半年 存款": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 待业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "入职一个月想离职": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "蓝领 工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 进厂": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "三方协议": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "电子厂工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2027 秋招": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "26届毁约": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 机械工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "应届生试用期被辞退": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "租房后剩多少钱": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "毕业 待业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "996 工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "机械 硕士 就业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "找工作 半年": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期 延长": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 被辞": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 秋招": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "测试 外包": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "工厂 包吃住": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 程序员 工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 加班": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "应届生 月薪": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 求职难": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "AI替代程序员": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 不上班": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 回家": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "计算机 应届 就业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "秋招 面经": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "到手 5000": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 boss直聘": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期 被裁": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "计算机寒冬": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 机械 校招": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "到手工资 房租": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 校招": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "五险一金": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 失业金": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "自动化就业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 薪资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "被优化 2026": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 大小周": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "通勤 两小时": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "简历没人回": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "Java找不到工作": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 面试": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "机械专业就业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "工厂倒班": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "找不到工作回县城": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "单休 工作": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 裁员": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 互联网 裁员": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 试用期": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "试用期 转正": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 工资低": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "毕业即失业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 找工作": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 工厂": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "失业三个月": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "应届生被劝退": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "流水线工作": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "全职儿女": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 程序员就业": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "机械 转行": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "前端 找不到工作": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "投了500份简历": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 智能制造": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 求职": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "2026 工作 生活": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "机械工程师加班": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "26届 到手工资": {
+      "direction": "v6_1_legacy",
+      "source": "v6.1"
+    },
+    "本科毕业找工作": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "大专毕业就业": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "双非本科求职": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "二本毕业工资": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "三本毕业就业": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "硕士毕业找工作": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "研究生学历贬值": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "学历倒挂就业": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "毕业一年工作情况": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "毕业三年工资": {
+      "direction": "graduate_education",
+      "source": "v6.2"
+    },
+    "Boss直聘已读不回": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "智联招聘找工作体验": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "前程无忧招聘": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "猎聘找工作": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "招聘岗位虚假薪资": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "求职海投没回应": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "HR面试失联": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "招聘要求工作经验": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "面试被压工资": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "找工作学历歧视": {
+      "direction": "job_platform",
+      "source": "v6.2"
+    },
+    "毕业第一份工资": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "转正工资涨幅": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "实发工资和招聘薪资": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "工资条扣款": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "税前税后工资差额": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "本科生薪资倒挂": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "同工不同酬": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "绩效工资被扣": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "年终奖缩水": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "工资三千生活": {
+      "direction": "wage_income",
+      "source": "v6.2"
+    },
+    "五险一金缴纳基数": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "社保断缴": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "公积金缴纳比例": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "公司不交社保": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "入职当月社保": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "劳务派遣五险一金": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "社保最低基数": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "公积金可以提现吗": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "灵活就业社保": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "社保个人承担多少": {
+      "direction": "social_insurance",
+      "source": "v6.2"
+    },
+    "实习工资多少": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "实习转正失败": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "大学生暑期实习": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "毕业实习被辞退": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "试用期不通过": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "试用期末淘汰": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "转正考核指标": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "新员工培训体验": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "实习没有工资": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "试岗不给钱": {
+      "direction": "internship_probation",
+      "source": "v6.2"
+    },
+    "裁员N+1赔偿": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "劳动仲裁经历": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "公司欠薪": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "合同到期不续签": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "公司倒闭失业": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "失业保险申领": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "部门解散被裁": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "毕业半年被裁": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "被辞退维权": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "裁员协商赔偿": {
+      "direction": "layoff_dispute",
+      "source": "v6.2"
+    },
+    "软件外包驻场": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "IT外包员工工资": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "劳务派遣工作体验": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "国企劳务派遣待遇": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "央企外包员工": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "第三方签约工作": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "外包转正式员工": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "外包员工被辞退": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "驻场工程师待遇": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "劳务派遣和正式工区别": {
+      "direction": "outsourcing_dispatch",
+      "source": "v6.2"
+    },
+    "县城找工作": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "毕业回农村": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "大城市回老家": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "失业在家半年": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "全职儿女生活费": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "家里蹲毕业生": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "毕业回家啃老": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "待业期间焦虑": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "回老家工资": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "低欲望不上班生活": {
+      "direction": "idle_hometown",
+      "source": "v6.2"
+    },
+    "电子厂小时工": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "工厂十二小时倒班": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "流水线计件工资": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "工厂包吃包住体验": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "进厂三个月": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "工厂劳务中介": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "普工月薪多少": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "仓库分拣工资": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "快递分拣夜班": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "工厂工伤赔偿": {
+      "direction": "factory_labor",
+      "source": "v6.2"
+    },
+    "嵌入式工程师薪资": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "软件测试毕业就业": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "算法岗位招聘门槛": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "大模型行业求职": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "人工智能专业就业": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "程序员35岁失业": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "前端外包员工工资": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "程序员转制造业": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "互联网实习留用": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "计算机研究生就业": {
+      "direction": "computer_internet",
+      "source": "v6.2"
+    },
+    "机械设计外包": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "机械工程师劳务派遣": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "PLC工程师工资": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "电气自动化实习": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "汽车零部件厂薪资": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "工艺工程师待遇": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "自动化设备调试出差": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "工业机器人调试工资": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "新能源电池厂招聘": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "机械工程师出差补贴": {
+      "direction": "machinery_electric",
+      "source": "v6.2"
+    },
+    "医药行业就业": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "药厂QC工资": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "药厂QA工资": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "生物医药毕业就业": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "医药代表收入": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "医疗器械工程师工资": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "临床试验CRA薪资": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "医院劳务派遣": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "护士合同工工资": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "医药研发外包CRO": {
+      "direction": "medical_pharma",
+      "source": "v6.2"
+    },
+    "毕业生租房预算": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "合租房租水电": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "房租占工资比例": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "一个月水电费": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "月薪四千攒钱": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "月薪五千存款": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "毕业一年攒了多少钱": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "在外工作生活费": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "一个人租房生活": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "工资不够交房租": {
+      "direction": "housing_saving",
+      "source": "v6.2"
+    },
+    "北京工资房租": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "上海普通打工人生活": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "深圳工资生活成本": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "广州毕业生租房": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "杭州互联网就业": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "成都工资低": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "苏州工厂工资": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "东莞制造业就业": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "二线城市应届生工资": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "县城月薪三千": {
+      "direction": "city_mobility",
+      "source": "v6.2"
+    },
+    "考研失败找工作": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "考公失败就业": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "考编失败找工作": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "国企和私企待遇": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "外卖骑手实际收入": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "网约车司机收入": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "毕业转行做销售": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "制造业转互联网": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "自由职业收入不稳定": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    },
+    "兼职副业攒钱": {
+      "direction": "career_transition",
+      "source": "v6.2"
+    }
+  },
+  "keyword_policy": {
+    "base_keyword_total": 250,
+    "modifiers_excluded_from_total": true,
+    "no_cartesian_product": true,
+    "dynamic_keywords_allowed": true,
+    "dynamic_keyword_min_score": 2
+  }
 }

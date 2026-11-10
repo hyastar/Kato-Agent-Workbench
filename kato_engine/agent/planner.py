@@ -14,7 +14,11 @@ from typing import Any
 from kato_engine.agent.contracts import BatchTask
 from kato_engine.agent.scripts import search_url
 from kato_engine.discovery.candidate_queue import CandidateQueue
-from kato_engine.discovery.keyword_planner import KeywordPlanner, KeywordLibrary
+from kato_engine.discovery.keyword_planner import (
+    KeywordLibrary,
+    KeywordPlanner,
+    KeywordStat,
+)
 from kato_engine.observability.logging import get_logger
 
 _LOGGER = get_logger("kato.planner")
@@ -36,6 +40,40 @@ class BatchPlan:
         }
 
 
+def load_keyword_stats(repo, campaign_id: str, platform: str) -> dict[str, KeywordStat]:
+    """按关键词聚合历史搜索效果（跨运行累计）。"""
+    rows = repo.conn.execute(
+        "SELECT keyword, COUNT(*) AS searches, COALESCE(SUM(candidates_found), 0) AS found, "
+        "COALESCE(SUM(duplicates), 0) AS duplicates, COALESCE(SUM(opened_details), 0) AS opened, "
+        "COALESCE(SUM(accepted), 0) AS accepted, MAX(executed_at) AS last_at "
+        "FROM engine_query_runs WHERE campaign_id = ? AND platform = ? GROUP BY keyword",
+        (campaign_id, platform),
+    ).fetchall()
+    stats: dict[str, KeywordStat] = {}
+    for row in rows:
+        stats[str(row["keyword"])] = KeywordStat(
+            searches=int(row["searches"]),
+            found=int(row["found"]),
+            duplicates=int(row["duplicates"]),
+            opened=int(row["opened"]),
+            accepted=int(row["accepted"]),
+            last_at=str(row["last_at"]) if row["last_at"] else None,
+        )
+    return stats
+
+
+def approved_dynamic_keywords(repo, campaign_id: str) -> dict[str, list[str]]:
+    """人工批准过的动态关键词，按维度注入调度器。"""
+    rows = repo.conn.execute(
+        "SELECT keyword, dimension FROM engine_dynamic_keywords WHERE status = 'approved'"
+    ).fetchall()
+    grouped: dict[str, list[str]] = {}
+    for row in rows:
+        dimension = str(row["dimension"] or "job_search")
+        grouped.setdefault(dimension, []).append(str(row["keyword"]))
+    return grouped
+
+
 def remaining_for(repo, campaign_id: str, target_xhs: int, target_zhihu: int) -> dict[str, int]:
     counts = repo.campaign_article_counts(campaign_id)
     return {
@@ -54,6 +92,7 @@ def plan_batch(
     target_zhihu: int,
     platform: str | None = None,
     size: int = 4,
+    dimension: str | None = None,
 ) -> BatchPlan:
     settings = repo.settings
     remaining = remaining_for(repo, campaign_id, target_xiaohongshu, target_zhihu)
@@ -82,8 +121,13 @@ def plan_batch(
         executed_queries=repo.executed_queries(platform),
         accepted_by_dimension=accepted,
         pipeline_by_dimension=pipeline,
+        stats=load_keyword_stats(repo, campaign_id, platform),
+        extra_keywords=approved_dynamic_keywords(repo, campaign_id),
     )
-    plan = planner.next_plan()
+    if dimension:
+        plan = planner.next_plan_for_dimension(library.dimension(dimension))
+    else:
+        plan = planner.next_plan()
     if plan is None:
         return BatchPlan(None, f"keywords_exhausted:{platform}", remaining, 0)
 

@@ -75,6 +75,9 @@ class CandidateQueue:
             "invalid": invalid,
             "inserted": result.inserted,
             "duplicates": result.duplicates + duplicates_in_batch,
+            # V6.2：区分"同一批结果内重复"与"与历史候选/已入库重复"
+            "duplicate_in_batch": duplicates_in_batch,
+            "duplicate_with_history": result.duplicates,
             "skipped_existing": result.skipped_existing,
         }
 

@@ -131,6 +131,24 @@ COHORT_PATTERNS: tuple[tuple[str, str], ...] = (
     ("2025", "other"),
 )
 
+EMPLOYMENT_TYPE_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("劳务派遣", ("劳务派遣", "派遣工", "派遣员工", "第三方签约", "三方签约")),
+    ("外包", ("外包", "驻场", "乙方", "od岗", "od 岗")),
+    ("实习", ("实习", "实习生")),
+    ("合同工", ("合同工", "劳务合同", "非编", "临时工")),
+    ("灵活就业", ("灵活就业", "自由职业", "兼职", "日结", "零工")),
+    ("正式工", ("正式工", "正式员工", "编制", "在编")),
+)
+
+BENEFIT_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("社保", ("社保", "五险", "养老保险")),
+    ("公积金", ("公积金", "五险一金")),
+    ("包吃住", ("包吃包住", "包住", "管吃管住", "包食宿")),
+    ("餐补", ("餐补", "饭补", "餐费补贴")),
+    ("年终奖", ("年终奖", "十三薪", "14薪", "14 薪")),
+    ("补贴", ("交通补贴", "住房补贴", "出差补贴", "高温补贴")),
+)
+
 RECRUITMENT_AD_MARKERS = ("招聘", "内推", "岗位职责", "任职要求", "简历投递", "扫码", "薪资面议")
 SECONDHAND_MARKERS = ("我朋友", "我表姐", "我同学说", "听说", "转述", "网友说", "我室友")
 
@@ -144,6 +162,8 @@ class Classification:
     event_year: int | None
     salary_reported: bool | None
     experience_type: str | None
+    employment_type: str | None
+    benefits: str | None
     legacy_topic: str
     cohort: str
     recruitment_stage: str
@@ -160,6 +180,9 @@ class Classification:
             "salary_reported": self.salary_reported,
             "experience_type": self.experience_type,
         }
+
+    def to_aux_fields(self) -> dict[str, object]:
+        return {"employment_type": self.employment_type, "benefits": self.benefits}
 
 
 def _score(text: str, keywords: tuple[str, ...]) -> int:
@@ -197,6 +220,17 @@ def classify(title: str, body: str) -> Classification:
             status = value
             break
 
+    employment_type = None
+    for value, markers in EMPLOYMENT_TYPE_MARKERS:
+        if any(marker in combined for marker in markers):
+            employment_type = value
+            break
+
+    benefit_tags = [
+        value for value, markers in BENEFIT_MARKERS if any(marker in combined for marker in markers)
+    ]
+    benefits = ",".join(benefit_tags) if benefit_tags else None
+
     industry = None
     for marker, value in INDUSTRY_KEYWORDS:
         if marker in combined:
@@ -225,6 +259,8 @@ def classify(title: str, body: str) -> Classification:
         event_year=event_year,
         salary_reported=salary_reported,
         experience_type=experience_type,
+        employment_type=employment_type,
+        benefits=benefits,
         legacy_topic=LEGACY_TOPIC.get(topic or "", "other"),
         cohort=cohort,
         recruitment_stage=stage,

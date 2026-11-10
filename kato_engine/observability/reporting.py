@@ -53,6 +53,22 @@ def build_report(
             (campaign_id,),
         ).fetchall()
     }
+    employment_type_counts = {
+        row["employment_type"] or "unknown": row["n"]
+        for row in conn.execute(
+            "SELECT COALESCE(employment_type, 'unknown') AS employment_type, COUNT(*) AS n "
+            "FROM research_items WHERE campaign_id = ? GROUP BY 1",
+            (campaign_id,),
+        ).fetchall()
+    }
+    benefits_counts = {
+        row["benefits"] or "unknown": row["n"]
+        for row in conn.execute(
+            "SELECT COALESCE(benefits, 'unknown') AS benefits, COUNT(*) AS n "
+            "FROM research_items WHERE campaign_id = ? GROUP BY 1 ORDER BY n DESC LIMIT 8",
+            (campaign_id,),
+        ).fetchall()
+    }
     comment_stats = conn.execute(
         "SELECT COUNT(*) AS total, "
         "SUM(CASE WHEN comment_level = 1 THEN 1 ELSE 0 END) AS top_level, "
@@ -66,9 +82,26 @@ def build_report(
     query_stats = conn.execute(
         "SELECT COUNT(*) AS queries, COALESCE(SUM(candidates_found), 0) AS found, "
         "COALESCE(SUM(duplicates), 0) AS duplicates, COALESCE(SUM(accepted), 0) AS accepted, "
+        "COALESCE(SUM(CASE WHEN new_candidates > 0 THEN new_candidates "
+        "ELSE MAX(candidates_found - duplicates, 0) END), 0) AS new_candidates, "
+        "COALESCE(SUM(duplicate_in_batch), 0) AS dup_in_batch, "
+        "COALESCE(SUM(duplicate_with_history), 0) AS dup_history, "
+        "COALESCE(SUM(invalid_urls), 0) AS invalid_urls, "
+        "COALESCE(SUM(relevance_passed), 0) AS relevance_passed, "
         "COALESCE(AVG(duration_ms), 0) AS avg_ms FROM engine_query_runs WHERE campaign_id = ?",
         (campaign_id,),
     ).fetchone()
+    keyword_efficiency = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT keyword, COUNT(*) AS searches, COALESCE(SUM(new_candidates), 0) AS new_candidates, "
+            "COALESCE(SUM(accepted), 0) AS accepted, "
+            "ROUND(CAST(COALESCE(SUM(accepted), 0) AS REAL) / COUNT(*), 2) AS per_search "
+            "FROM engine_query_runs WHERE campaign_id = ? GROUP BY keyword "
+            "HAVING searches >= ? ORDER BY per_search DESC, accepted DESC LIMIT 10",
+            (campaign_id, 1),
+        ).fetchall()
+    ]
 
     phase_metrics = {
         row["phase"]: {
@@ -112,6 +145,40 @@ def build_report(
         if entry["started_at"] and entry["finished_at"]:
             total_seconds += _seconds_between(entry["started_at"], entry["finished_at"])
 
+    # 关键词来源对照：旧 100 词 vs V6.2 新增 150 词
+    source_map: dict[str, str] = {}
+    try:
+        from kato_engine.discovery.keyword_planner import load_keyword_library
+
+        library = load_keyword_library(settings.keyword_library_path)
+        for dimension in library.dimensions:
+            for keyword in dimension.keywords:
+                source_map[keyword] = str(library.meta_for(keyword).get("source") or "unknown")
+    except Exception:  # noqa: BLE001 - 报告不应因词库缺失而失败
+        source_map = {}
+    source_rows = conn.execute(
+        "SELECT keyword, COUNT(*) AS searches, COALESCE(SUM(candidates_found), 0) AS found, "
+        "COALESCE(SUM(CASE WHEN new_candidates > 0 THEN new_candidates "
+        "ELSE MAX(candidates_found - duplicates, 0) END), 0) AS new_candidates, "
+        "COALESCE(SUM(accepted), 0) AS accepted "
+        "FROM engine_query_runs WHERE campaign_id = ? GROUP BY keyword",
+        (campaign_id,),
+    ).fetchall()
+    source_stats: dict[str, dict[str, int]] = {}
+    for row in source_rows:
+        source = source_map.get(str(row["keyword"]), "dynamic_or_unknown")
+        bucket = source_stats.setdefault(
+            source, {"searches": 0, "found": 0, "new_candidates": 0, "accepted": 0}
+        )
+        bucket["searches"] += int(row["searches"])
+        bucket["found"] += int(row["found"])
+        bucket["new_candidates"] += int(row["new_candidates"])
+        bucket["accepted"] += int(row["accepted"])
+    for bucket in source_stats.values():
+        bucket["accepted_per_search"] = round(
+            bucket["accepted"] / max(bucket["searches"], 1), 2
+        )
+
     report: dict[str, Any] = {
         "campaign": {
             "campaign_id": campaign_id,
@@ -129,6 +196,8 @@ def build_report(
             "by_dimension": dimension_counts,
             "by_cohort": cohort_counts,
             "by_coverage": coverage_counts,
+            "by_employment_type": employment_type_counts,
+            "by_benefits": benefits_counts,
         },
         "comments": {
             "total": int(comment_stats["total"] or 0),
@@ -147,7 +216,14 @@ def build_report(
                 "duplicate_rate": round(
                     int(query_stats["duplicates"]) / max(int(query_stats["found"]), 1), 3
                 ),
+                "new_candidates": int(query_stats["new_candidates"] or 0),
+                "duplicate_in_batch": int(query_stats["dup_in_batch"] or 0),
+                "duplicate_with_history": int(query_stats["dup_history"] or 0),
+                "invalid_urls": int(query_stats["invalid_urls"] or 0),
+                "relevance_passed": int(query_stats["relevance_passed"] or 0),
             },
+            "keyword_efficiency": keyword_efficiency,
+            "keyword_source_efficiency": source_stats,
             "phase_metrics": phase_metrics,
         },
         "runs": runs,

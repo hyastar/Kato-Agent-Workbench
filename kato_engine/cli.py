@@ -37,25 +37,25 @@ def cmd_plan(args: argparse.Namespace) -> int:
     settings, repo, report, library = _open()
     try:
         campaign_id = args.campaign or library.campaign
+        from kato_engine.agent.planner import approved_dynamic_keywords, load_keyword_stats
+
         planner = KeywordPlanner(
             library,
             executed_queries=repo.executed_queries(args.platform),
             accepted_by_dimension=repo.dimension_article_counts(campaign_id),
             pipeline_by_dimension=CandidateQueue(repo).dimension_pipeline(campaign_id=campaign_id),
+            stats=load_keyword_stats(repo, campaign_id, args.platform),
+            extra_keywords=approved_dynamic_keywords(repo, campaign_id),
         )
-        plans = []
-        for _ in range(max(args.limit, 0)):
-            plan = planner.next_plan()
-            if plan is None:
-                break
-            plans.append(plan.to_dict())
-            planner.executed.add(plan.combined_query)
+        plans = [plan.to_dict() for plan in planner.next_plans(args.limit)]
         payload = {
             "campaign_id": campaign_id,
             "platform": args.platform,
             "schema_version": report.to_version,
             "dimensions": len(planner.library.dimensions),
-            "keywords": sum(len(d.keywords) for d in planner.library.dimensions),
+            "base_keywords": planner.library.base_keyword_total(),
+            "modifiers": len(planner.library.modifiers),
+            "directions": [d["id"] for d in planner.library.directions],
             "accepted_by_dimension": repo.dimension_article_counts(campaign_id),
             "plans": plans,
             "exhausted_dimensions": planner.exhausted_dimensions(),
@@ -185,6 +185,49 @@ def cmd_export_missing(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_aux_backfill(args: argparse.Namespace) -> int:
+    """按标题与档案摘要回填就业形式/福利辅助标签（只填空值）。"""
+    from kato_engine.collection.classification import classify
+
+    _, repo, _, library = _open()
+    campaign_id = args.campaign or library.campaign
+    summary: dict[str, Any] = {"campaign_id": campaign_id, "dry_run": args.dry_run}
+    try:
+        rows = repo.conn.execute(
+            "SELECT item_id, title, summary FROM research_items "
+            "WHERE campaign_id = ? AND (employment_type IS NULL OR benefits IS NULL)",
+            (campaign_id,),
+        ).fetchall()
+        updated = 0
+        by_type: dict[str, int] = {}
+        by_benefit: dict[str, int] = {}
+        for row in rows:
+            result = classify(str(row["title"] or ""), str(row["summary"] or ""))
+            aux = result.to_aux_fields()
+            if not aux["employment_type"] and not aux["benefits"]:
+                continue
+            updated += 1
+            if aux["employment_type"]:
+                by_type[str(aux["employment_type"])] = by_type.get(str(aux["employment_type"]), 0) + 1
+            for tag in str(aux["benefits"] or "").split(","):
+                if tag:
+                    by_benefit[tag] = by_benefit.get(tag, 0) + 1
+            if not args.dry_run:
+                repo.set_aux_classification(str(row["item_id"]), **aux)
+        summary.update(
+            {
+                "candidates": len(rows),
+                "updated": updated,
+                "by_employment_type": by_type,
+                "by_benefits": by_benefit,
+            }
+        )
+    finally:
+        repo.close()
+    _print(summary)
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     from kato_engine.observability.reporting import (
         build_report,
@@ -272,7 +315,7 @@ def build_parser() -> argparse.ArgumentParser:
     plan = sub.add_parser("plan", help="查看关键词调度（不联网）")
     plan.add_argument("--platform", required=True, choices=("xiaohongshu", "zhihu"))
     plan.add_argument("--campaign")
-    plan.add_argument("--limit", type=int, default=3)
+    plan.add_argument("--limit", type=int, default=5)
     plan.set_defaults(func=cmd_plan)
 
     stats = sub.add_parser("queue-stats", help="查看候选队列与文章分布")
@@ -301,6 +344,11 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--markdown", action="store_true")
     report.add_argument("--no-verify", action="store_true")
     report.set_defaults(func=cmd_report)
+
+    aux = sub.add_parser("aux-backfill", help="补齐就业形式与福利标签")
+    aux.add_argument("--campaign")
+    aux.add_argument("--dry-run", action="store_true")
+    aux.set_defaults(func=cmd_aux_backfill)
 
     backfill = sub.add_parser("classify-backfill", help="补齐历史文章分类")
     backfill.add_argument("--campaign")

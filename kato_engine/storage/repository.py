@@ -387,6 +387,26 @@ class EngineRepository:
             return "processing"
         return state
 
+    def set_aux_classification(
+        self,
+        item_id: str,
+        *,
+        employment_type: str | None = None,
+        benefits: str | None = None,
+    ) -> None:
+        """写入就业形式与福利标签（按正文判定，可为空）。"""
+        allowed_types = {"正式工", "外包", "劳务派遣", "实习", "合同工", "灵活就业"}
+        if employment_type is not None and employment_type not in allowed_types:
+            raise ValueError(f"不支持的 employment_type：{employment_type}")
+        with self.conn:
+            cursor = self.conn.execute(
+                "UPDATE research_items SET employment_type = COALESCE(?, employment_type), "
+                "benefits = COALESCE(?, benefits), updated_at = ? WHERE item_id = ?",
+                (employment_type, benefits, db.utc_now(), item_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"研究条目不存在：{item_id}")
+
     def mark_accepted(self, candidate_id: str, item_id: str) -> None:
         self._transition(candidate_id, "accepted", item_id=item_id)
 
@@ -524,18 +544,30 @@ class EngineRepository:
         duration_ms: int,
         failure_reason: str | None = None,
         engine_run_id: str | None = None,
+        new_candidates: int = 0,
+        duplicate_in_batch: int = 0,
+        duplicate_with_history: int = 0,
+        invalid_urls: int = 0,
+        relevance_passed: int = 0,
     ) -> str:
         query_run_id = query_run_id_for(platform, combined_query)
         with self.conn:
             self.conn.execute(
                 "INSERT INTO engine_query_runs (query_run_id, engine_run_id, campaign_id, "
                 "platform, dimension, keyword, combined_query, candidates_found, duplicates, "
-                "opened_details, accepted, failure_reason, duration_ms, executed_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "opened_details, accepted, failure_reason, duration_ms, executed_at, "
+                "new_candidates, duplicate_in_batch, duplicate_with_history, invalid_urls, "
+                "relevance_passed) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(query_run_id) DO UPDATE SET candidates_found = excluded.candidates_found, "
                 "duplicates = excluded.duplicates, opened_details = excluded.opened_details, "
                 "accepted = excluded.accepted, failure_reason = excluded.failure_reason, "
-                "duration_ms = excluded.duration_ms, executed_at = excluded.executed_at",
+                "duration_ms = excluded.duration_ms, executed_at = excluded.executed_at, "
+                "new_candidates = excluded.new_candidates, "
+                "duplicate_in_batch = excluded.duplicate_in_batch, "
+                "duplicate_with_history = excluded.duplicate_with_history, "
+                "invalid_urls = excluded.invalid_urls, "
+                "relevance_passed = excluded.relevance_passed",
                 (
                     query_run_id,
                     engine_run_id,
@@ -551,6 +583,11 @@ class EngineRepository:
                     failure_reason,
                     duration_ms,
                     db.utc_now(),
+                    new_candidates,
+                    duplicate_in_batch,
+                    duplicate_with_history,
+                    invalid_urls,
+                    relevance_passed,
                 ),
             )
         return query_run_id
