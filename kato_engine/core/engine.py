@@ -406,7 +406,9 @@ class CampaignEngine:
         else:
             self._empty_searches[platform] = 0
         time.sleep(self.settings.pause_between_queries_ms / 1000)
-        return "resumed" if added["inserted"] else "failed"
+        # 一次搜索已消耗一个关键词并推进了调度，即使 0 新增也属于有效进展；
+        # 连续空搜索由 _empty_searches 计数负责停止。
+        return "resumed"
 
     # -- 辅助 -------------------------------------------------------------
     def _resolve_hit(

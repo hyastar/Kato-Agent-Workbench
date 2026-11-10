@@ -421,6 +421,20 @@ class XiaohongshuAdapter:
             page.mouse.wheel(0, 1_200)
             page.wait_for_timeout(700)
 
+        # 部分笔记需要点击"共 N 条评论"才展开列表
+        if page.locator(".comment-item").count() == 0 and displayed_total:
+            for selector in (".comments-container .total", ".comments-el .total"):
+                target = page.locator(selector)
+                if target.count():
+                    try:
+                        target.first.click(timeout=3_000)
+                        page.wait_for_timeout(2_000)
+                        page.mouse.wheel(0, 1_500)
+                        page.wait_for_timeout(1_200)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    break
+
         self._raise_if_blocked(page, context="评论区")
         raw_nodes = page.evaluate(_COMMENTS_EXTRACT, None)
         nodes = [self._to_node(item, 1) for item in raw_nodes or []]
